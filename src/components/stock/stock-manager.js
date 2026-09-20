@@ -6,7 +6,14 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Icon } from "@/components/ui/icon";
 
-export function StockManager({ products, categories }) {
+export function StockManager({
+  products,
+  categories,
+  paginaAtual = 1,
+  totalProdutos = 0,
+  itensPorPagina = 50,
+  resumoEstoque = null,
+}) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [showProductForm, setShowProductForm] = useState(false);
@@ -31,6 +38,10 @@ export function StockManager({ products, categories }) {
   const lowStock = products.filter(
     (product) => product.quantidade_estoque <= product.estoque_minimo,
   ).length;
+  const totalPaginas = Math.max(1, Math.ceil(totalProdutos / itensPorPagina));
+  function irParaPagina(novaPagina) {
+    router.push(`/estoque?pagina=${novaPagina}`);
+  }
 
   async function salvarProduto(form) {
     setSaving(true);
@@ -196,22 +207,19 @@ export function StockManager({ products, categories }) {
       <section className="mb-6 grid gap-4 sm:grid-cols-3">
         <Summary
           label="Produtos cadastrados"
-          value={products.length}
+          value={totalProdutos}
           icon="gem"
           tone="rose"
         />
         <Summary
           label="Peças em estoque"
-          value={products.reduce(
-            (sum, product) => sum + product.quantidade_estoque,
-            0,
-          )}
+          value={resumoEstoque?.total_pecas ?? products.reduce((sum, product) => sum + product.quantidade_estoque, 0)}
           icon="box"
           tone="emerald"
         />
         <Summary
           label="Estoque baixo"
-          value={lowStock}
+          value={resumoEstoque?.produtos_estoque_baixo ?? lowStock}
           icon="bell"
           tone="amber"
         />
@@ -236,7 +244,15 @@ export function StockManager({ products, categories }) {
         </div>
         {visibleProducts.length ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[650px] text-left">
+            <table className="w-full min-w-[900px] text-left">
+              <colgroup>
+                <col className="w-[46%]" />
+                <col className="w-[16%]" />
+                <col className="w-[10%]" />
+                <col className="w-[8%]" />
+                <col className="w-[14%]" />
+                <col className="w-[6%]" />
+              </colgroup>
               <thead className="bg-[#fcfbfa] text-xs font-semibold uppercase tracking-wide text-[#9a9591]">
                 <tr>
                   <th className="px-6 py-3">Produto</th>
@@ -287,24 +303,6 @@ export function StockManager({ products, categories }) {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => {
-                            setProdutoEmEdicao(product);
-                            setShowProductForm(true);
-                            setMessage("");
-                          }}
-                          className="cursor-pointer mr-3 text-xs font-semibold text-[#9b6d64]"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => excluirProduto(product.id)}
-                          className="cursor-pointer text-xs font-semibold text-[#9b6d64]"
-                        >
-                          Excluir
-                        </button>
-                      </td>
                       <td className="px-6 py-4">
                         {product.categorias?.nome || "Sem categoria"}
                       </td>
@@ -316,10 +314,14 @@ export function StockManager({ products, categories }) {
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${low ? "bg-[#fff3df] text-[#ae751a]" : "bg-[#eaf5ee] text-[#4f8c6d]"}`}
+                          className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${low ? "bg-[#fff3df] text-[#ae751a]" : "bg-[#eaf5ee] text-[#4f8c6d]"}`}
                         >
                           {low ? "Estoque baixo" : "Em dia"}
                         </span>
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-right">
+                        <button onClick={() => { setProdutoEmEdicao(product); setShowProductForm(true); setMessage(""); }} className="mr-3 text-xs font-semibold text-[#9b6d64]">Editar</button>
+                        <button onClick={() => excluirProduto(product.id)} className="text-xs font-semibold text-[#9b6d64]">Excluir</button>
                       </td>
                     </tr>
                   );
@@ -334,6 +336,29 @@ export function StockManager({ products, categories }) {
           />
         )}
       </section>
+      {totalProdutos > itensPorPagina && (
+        <div className="mt-5 flex items-center justify-between rounded-xl border border-[#ebe8e5] bg-white px-4 py-3 text-sm">
+          <span className="text-[#78716c]">
+            Página {paginaAtual} de {totalPaginas} · {totalProdutos} produtos
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => irParaPagina(paginaAtual - 1)}
+              disabled={paginaAtual <= 1}
+              className="rounded-lg border border-[#ded8d4] px-3 py-1.5 font-semibold text-[#675e59] disabled:opacity-40"
+            >
+              Anterior
+            </button>
+            <button
+              onClick={() => irParaPagina(paginaAtual + 1)}
+              disabled={paginaAtual >= totalPaginas}
+              className="rounded-lg border border-[#ded8d4] px-3 py-1.5 font-semibold text-[#675e59] disabled:opacity-40"
+            >
+              Próxima
+            </button>
+          </div>
+        </div>
+      )}
       {(showProductForm || showCategoryForm || showEntryForm) && (
         <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[#292524]/35 p-4">
           <div className="my-5 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
