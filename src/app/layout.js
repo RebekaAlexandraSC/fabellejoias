@@ -10,6 +10,7 @@ const geistSans = Geist({
 export const metadata = {
   title: "Fabelle Joias | Gestão",
   description: "Controle de vendas e estoque da Fabelle Joias.",
+  icons: { icon: "/icon.png?v=2" },
 };
 
 export default function RootLayout({ children }) {

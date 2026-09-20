@@ -11,6 +11,7 @@ export function CustomerManager({ customers }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [clienteEmEdicao, setClienteEmEdicao] = useState({ id: null });
   const visibleCustomers = useMemo(
     () =>
       customers.filter((customer) =>
@@ -21,23 +22,20 @@ export function CustomerManager({ customers }) {
     [customers, search],
   );
 
-  async function createCustomer(form) {
+  async function salvarCliente(form) {
     setSaving(true);
     setMessage("");
     const values = Object.fromEntries(new FormData(form));
-    const { error } = await createClient()
-      .from("clientes")
-      .insert({
-        nome: values.nome.trim(),
-        telefone: values.telefone.trim() || null,
-        observacao: values.observacao.trim() || null,
-      });
+    const dadosCliente = { nome: values.nome.trim(), telefone: values.telefone.trim() || null, observacao: values.observacao.trim() || null };
+    const consulta = createClient().from("clientes");
+    const { error } = clienteEmEdicao.id ? await consulta.update(dadosCliente).eq("id", clienteEmEdicao.id) : await consulta.insert(dadosCliente);
     setSaving(false);
     if (error)
       return setMessage(
-        "Não foi possível cadastrar a cliente. Tente novamente.",
+        "Não foi possível salvar a cliente. Tente novamente.",
       );
     setOpen(false);
+    setClienteEmEdicao({ id: null });
     router.refresh();
   }
 
@@ -57,6 +55,7 @@ export function CustomerManager({ customers }) {
         <button
           onClick={() => {
             setOpen(true);
+            setClienteEmEdicao({ id: null });
             setMessage("");
           }}
           className="inline-flex items-center gap-2 self-start rounded-xl bg-[#9b6d64] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#855b53] sm:self-auto"
@@ -104,11 +103,15 @@ export function CustomerManager({ customers }) {
                     {customer.telefone || "Telefone não informado"}
                   </p>
                 </div>
+                <div className="hidden max-w-xs flex-1 text-sm text-[#78716c] sm:block">
+                  {customer.observacao || "—"}
+                </div>
                 <span
                   className={`rounded-full px-2.5 py-1 text-xs font-semibold ${customer.ativo ? "bg-[#eaf5ee] text-[#4f8c6d]" : "bg-[#f3f2f1] text-[#8d8782]"}`}
                 >
                   {customer.ativo ? "Ativa" : "Inativa"}
                 </span>
+                <button onClick={() => { setClienteEmEdicao(customer); setOpen(true); setMessage(""); }} className="text-xs font-semibold text-[#9b6d64]">Editar</button>
               </article>
             ))}
           </div>
@@ -144,7 +147,7 @@ export function CustomerManager({ customers }) {
             <div className="flex items-start justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-[#292524]">
-                  Nova cliente
+                  {clienteEmEdicao.id ? "Editar cliente" : "Nova cliente"}
                 </h2>
                 <p className="mt-1 text-sm text-[#78716c]">
                   Os dados podem ser complementados depois.
@@ -165,7 +168,7 @@ export function CustomerManager({ customers }) {
             <form
               onSubmit={(event) => {
                 event.preventDefault();
-                createCustomer(event.currentTarget);
+                salvarCliente(event.currentTarget);
               }}
               className="mt-6 space-y-4"
             >
@@ -174,12 +177,14 @@ export function CustomerManager({ customers }) {
                 name="nome"
                 placeholder="Nome da cliente"
                 required
+                defaultValue={clienteEmEdicao.nome || ""}
               />
               <Field
                 label="Telefone"
                 name="telefone"
                 type="tel"
                 placeholder="(00) 00000-0000"
+                defaultValue={clienteEmEdicao.telefone || ""}
               />
               <label className="block">
                 <span className="mb-1.5 block text-sm font-medium text-[#57534e]">
@@ -189,6 +194,7 @@ export function CustomerManager({ customers }) {
                 <textarea
                   name="observacao"
                   rows="3"
+                  defaultValue={clienteEmEdicao.observacao || ""}
                   className="w-full resize-none rounded-xl border border-[#ded8d4] px-3 py-2.5 text-sm outline-none focus:border-[#9b6d64]"
                 />
               </label>
@@ -196,7 +202,7 @@ export function CustomerManager({ customers }) {
                 disabled={saving}
                 className="w-full rounded-xl bg-[#9b6d64] px-4 py-3 text-sm font-semibold text-white hover:bg-[#855b53] disabled:opacity-70"
               >
-                {saving ? "Salvando..." : "Cadastrar cliente"}
+                {saving ? "Salvando..." : clienteEmEdicao.id ? "Salvar alterações" : "Cadastrar cliente"}
               </button>
             </form>
           </div>

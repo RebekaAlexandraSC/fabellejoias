@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Icon } from "@/components/ui/icon";
+import { CampoSelecao } from "@/components/ui/campo-selecao";
 
 const money = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -21,6 +22,7 @@ export function GerenciadorVendas({ customers, products, sales }) {
     { produto_id: "", quantidade: 1, preco_unitario: "" },
   ]);
   const [saving, setSaving] = useState(false);
+  const [clienteSelecionado, setClienteSelecionado] = useState("");
   const [message, setMessage] = useState("");
   const total = useMemo(
     () =>
@@ -54,8 +56,9 @@ export function GerenciadorVendas({ customers, products, sales }) {
         quantidade: Number(item.quantidade),
         preco_unitario: Number(item.preco_unitario),
       }));
+    if (!clienteSelecionado || validItems.some((item) => !item.produto_id)) { setSaving(false); return setMessage("Selecione uma cliente e produtos válidos na lista."); }
     const { error } = await createClient().rpc("registrar_venda", {
-      p_cliente_id: fields.cliente_id,
+      p_cliente_id: clienteSelecionado,
       p_itens: validItems,
       p_quantidade_parcelas: Number(fields.quantidade_parcelas),
       p_data_venda: fields.data_venda,
@@ -207,18 +210,7 @@ export function GerenciadorVendas({ customers, products, sales }) {
                 <span className="mb-1.5 block text-sm font-medium text-[#57534e]">
                   Cliente
                 </span>
-                <select
-                  name="cliente_id"
-                  required
-                  className="w-full rounded-xl border border-[#ded8d4] px-3 py-2.5 text-sm"
-                >
-                  <option value="">Selecione a cliente</option>
-                  {customers.map((customer) => (
-                    <option value={customer.id} key={customer.id}>
-                      {customer.nome}
-                    </option>
-                  ))}
-                </select>
+                  <CampoSelecao opcoes={customers.map((customer) => ({ valor: customer.id, rotulo: customer.nome }))} valor={clienteSelecionado} aoSelecionar={setClienteSelecionado} placeholder="Buscar cliente" />
               </label>
               <div>
                 <div className="mb-2 flex items-center justify-between">
@@ -244,21 +236,7 @@ export function GerenciadorVendas({ customers, products, sales }) {
                       key={index}
                       className="grid grid-cols-[1fr_80px_100px_24px] gap-2"
                     >
-                      <select
-                        value={item.produto_id}
-                        onChange={(event) =>
-                          atualizarItem(index, "produto_id", event.target.value)
-                        }
-                        required
-                        className="min-w-0 rounded-xl border border-[#ded8d4] px-2 text-sm"
-                      >
-                        <option value="">Produto</option>
-                        {products.map((product) => (
-                          <option value={product.id} key={product.id}>
-                            {product.referencia} ({product.quantidade_estoque})
-                          </option>
-                        ))}
-                      </select>
+                        <CampoSelecao opcoes={products.map((product) => ({ valor: product.id, rotulo: product.referencia, detalhe: `${product.descricao || "Sem descrição"} · ${product.quantidade_estoque} em estoque` }))} valor={item.produto_id} aoSelecionar={(valor) => atualizarItem(index, "produto_id", valor)} placeholder="Buscar produto" />
                       <input
                         value={item.quantidade}
                         onChange={(event) =>
@@ -297,7 +275,7 @@ export function GerenciadorVendas({ customers, products, sales }) {
                       >
                         ×
                       </button>
-                    </div>
+                  </div>
                   ))}
                 </div>
               </div>

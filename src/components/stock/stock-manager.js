@@ -138,8 +138,10 @@ export function StockManager({
     setSaving(true);
     setMessage("");
     const values = Object.fromEntries(new FormData(form));
+    const produto = products.find((item) => item.referencia === values.produto_busca);
+    if (!produto) { setSaving(false); return setMessage("Selecione um produto válido nas sugestões."); }
     const { error } = await createClient().rpc("registrar_entrada_estoque", {
-      p_produto_id: values.produto_id,
+      p_produto_id: produto.id,
       p_quantidade: Number(values.quantidade),
       p_custo_unitario: Number(values.custo_unitario),
       p_preco_sugerido: Number(values.preco_sugerido),
@@ -408,19 +410,14 @@ export function StockManager({
                   <span className="mb-1.5 block text-sm font-medium text-[#57534e]">
                     Produto
                   </span>
-                  <select
-                    name="produto_id"
+                  <input
+                    name="produto_busca"
                     required
+                    list="produtos-entrada-sugestoes"
+                    placeholder="Digite a referência"
                     className="w-full rounded-xl border border-[#ded8d4] px-3 py-2.5 text-sm outline-none focus:border-[#9b6d64]"
-                  >
-                    <option value="">Selecione uma referência</option>
-                    {products.map((product) => (
-                      <option key={product.id} value={product.id}>
-                        {product.referencia}
-                        {product.descricao ? ` — ${product.descricao}` : ""}
-                      </option>
-                    ))}
-                  </select>
+                  />
+                  <datalist id="produtos-entrada-sugestoes">{products.map((product) => <option key={product.id} value={product.referencia} label={product.descricao || ""} />)}</datalist>
                 </label>
                 <div className="grid grid-cols-2 gap-4">
                   <Field

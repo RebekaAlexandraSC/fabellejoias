@@ -37,19 +37,9 @@ export default function LoginPage() {
 
   return (
     <main className="grid min-h-screen bg-[#f8f8f7] lg:grid-cols-[1.05fr_.95fr]">
-      <section className="hidden bg-[#9b6d64] p-12 text-white lg:flex lg:flex-col lg:justify-between">
-        <div className="flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-xl bg-white text-lg font-semibold text-[#9b6d64]">
-            F
-          </span>
-          <div>
-            <strong className="block text-lg tracking-tight">
-              Fabelle Joias
-            </strong>
-            <span className="text-xs font-medium tracking-[0.2em] text-[#f6dfda]">
-              GESTÃO
-            </span>
-          </div>
+      <section className="hidden bg-[#9b6d64] p-12 text-white lg:flex lg:flex-col justify-center">
+        <div className="flex items-center justify-center gap-3">
+          <img src="/logo-fabelle.png" alt="Logo Fabelle Joias" className="" />
         </div>
         <div>
           <p className="max-w-md text-4xl font-semibold leading-tight tracking-tight">
@@ -64,18 +54,8 @@ export default function LoginPage() {
       <section className="flex items-center justify-center px-5 py-10 sm:px-8">
         <div className="w-full max-w-md">
           <div className="mb-10 lg:hidden">
-            <div className="flex items-center gap-3">
-              <span className="grid size-10 place-items-center rounded-xl bg-[#9b6d64] text-lg font-semibold text-white">
-                F
-              </span>
-              <div>
-                <strong className="block text-lg tracking-tight text-[#292524]">
-                  Fabelle Joias
-                </strong>
-                <span className="text-xs font-medium tracking-[0.2em] text-[#9b6d64]">
-                  GESTÃO
-                </span>
-              </div>
+            <div className="flex items-center justify-center gap-3">
+            <img src="/logo-fabelle.png" alt="Logo Fabelle Joias" className="" />
             </div>
           </div>
           <p className="text-sm font-medium text-[#9b6d64]">Bem-vinda</p>
