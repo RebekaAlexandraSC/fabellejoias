@@ -1,5 +1,6 @@
 import { DashboardCard } from "@/components/dashboard/dashboard-card";
 import { Icon } from "@/components/ui/icon";
+import { SeletorMes } from "@/components/reports/month-selector";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 
@@ -12,8 +13,12 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
   month: "short",
 });
 
-export default async function Home() {
-  const dashboard = await getDashboardData();
+export default async function Home({ searchParams }) {
+  const parametros = await searchParams;
+  const mesSelecionado = /^\d{4}-\d{2}$/.test(parametros?.mes || "")
+    ? parametros.mes
+    : new Date().toISOString().slice(0, 7);
+  const dashboard = await getDashboardData(mesSelecionado);
   return (
     <div className="mx-auto max-w-7xl">
       <header className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
@@ -26,13 +31,16 @@ export default async function Home() {
             Acompanhe o que acontece na sua loja hoje.
           </p>
         </div>
-        <Link
-          href="/vendas"
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#9b6d64] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#855b53]"
-        >
-          <Icon name="plus" size={18} />
-          Nova venda
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <SeletorMes mes={mesSelecionado} destino="/" compacto />
+          <Link
+            href="/vendas"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#9b6d64] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#855b53]"
+          >
+            <Icon name="plus" size={18} />
+            Nova venda
+          </Link>
+        </div>
       </header>
 
       <section
@@ -191,16 +199,13 @@ function Notice({ icon, title, text, alert = false }) {
   );
 }
 
-async function getDashboardData() {
+async function getDashboardData(mesSelecionado) {
   const supabase = await createClient();
+  const [ano, mes] = mesSelecionado.split("-").map(Number);
   const today = new Date();
   const todayISO = formatISODate(today);
-  const firstDay = formatISODate(
-    new Date(today.getFullYear(), today.getMonth(), 1),
-  );
-  const lastDay = formatISODate(
-    new Date(today.getFullYear(), today.getMonth() + 1, 0),
-  );
+  const firstDay = formatISODate(new Date(ano, mes - 1, 1));
+  const lastDay = formatISODate(new Date(ano, mes, 0));
   const [
     sales,
     receivable,
@@ -216,8 +221,18 @@ async function getDashboardData() {
       .select("valor_total")
       .gte("data_venda", firstDay)
       .lte("data_venda", lastDay),
-    supabase.from("parcelas").select("valor").is("data_pagamento", null),
-    supabase.from("parcelas_saidas").select("valor").is("data_pagamento", null),
+    supabase
+      .from("parcelas")
+      .select("valor")
+      .is("data_pagamento", null)
+      .gte("data_vencimento", firstDay)
+      .lte("data_vencimento", lastDay),
+    supabase
+      .from("parcelas_saidas")
+      .select("valor")
+      .is("data_pagamento", null)
+      .gte("data_vencimento", firstDay)
+      .lte("data_vencimento", lastDay),
     supabase
       .from("produtos")
       .select("quantidade_estoque, estoque_minimo")
@@ -229,17 +244,23 @@ async function getDashboardData() {
     supabase
       .from("vendas")
       .select("id, valor_total, data_venda, clientes(nome)")
+      .gte("data_venda", firstDay)
+      .lte("data_venda", lastDay)
       .order("data_venda", { ascending: false })
       .limit(5),
     supabase
       .from("parcelas")
       .select("id")
       .is("data_pagamento", null)
+      .gte("data_vencimento", firstDay)
+      .lte("data_vencimento", lastDay)
       .lt("data_vencimento", todayISO),
     supabase
       .from("parcelas_saidas")
       .select("id")
       .is("data_pagamento", null)
+      .gte("data_vencimento", firstDay)
+      .lte("data_vencimento", lastDay)
       .lt("data_vencimento", todayISO),
   ]);
   const sum = (rows, field) =>

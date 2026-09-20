@@ -14,16 +14,23 @@ const firstDue = new Date(Date.now() + 30 * 86400000)
   .toISOString()
   .slice(0, 10);
 
-export function FinanceManager({ receivables, payables }) {
+export function FinanceManager({
+  receivables = [],
+  payables = [],
+  saidas = [],
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const totalReceive = receivables.reduce(
-    (sum, item) => sum + Number(item.valor),
+    (sum, item) => sum + Number(item.valor || 0),
     0,
   );
-  const totalPay = payables.reduce((sum, item) => sum + Number(item.valor), 0);
+  const totalPay = payables.reduce(
+    (sum, item) => sum + Number(item.valor || 0),
+    0,
+  );
   async function registerExpense(form) {
     setSaving(true);
     setMessage("");
@@ -52,6 +59,19 @@ export function FinanceManager({ receivables, payables }) {
     if (error)
       setMessage(error.message || "Não foi possível marcar como paga.");
     else router.refresh();
+  }
+  async function excluirSaida(id) {
+    if (
+      !confirm(
+        "Excluir esta saída e todas as parcelas relacionadas, inclusive as já pagas?",
+      )
+    )
+      return;
+    const { error } = await createClient().rpc("excluir_saida", {
+      p_saida_id: id,
+    });
+    if (error) return setMessage(error.message);
+    router.refresh();
   }
   return (
     <div className="mx-auto max-w-7xl">
@@ -110,6 +130,55 @@ export function FinanceManager({ receivables, payables }) {
           type="pay"
           onPay={pay}
         />
+      </section>
+      <section className="mt-7 overflow-x-auto rounded-2xl border border-[#ebe8e5] bg-white">
+        <div className="border-b border-[#f0edeb] p-5">
+          <h2 className="font-semibold text-[#292524]">Saídas registradas</h2>
+        </div>
+        <table className="w-full min-w-[650px] text-sm">
+          <thead className="bg-[#fcfbfa] text-left text-xs uppercase text-[#918b87]">
+            <tr>
+              <th className="p-4">Descrição</th>
+              <th className="p-4">Categoria</th>
+              <th className="p-4">Data</th>
+              <th className="p-4">Valor</th>
+              <th className="p-4">Parcelas</th>
+              <th className="p-4"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {saidas.map((saida) => (
+              <tr key={saida.id} className="border-t border-[#f0edeb]">
+                <td className="p-4 font-semibold">{saida.descricao}</td>
+                <td className="p-4 capitalize">
+                  {saida.categoria.replaceAll("_", " ")}
+                </td>
+                <td className="p-4">
+                  {new Date(`${saida.data_saida}T12:00:00`).toLocaleDateString(
+                    "pt-BR",
+                  )}
+                </td>
+                <td className="p-4">
+                  {money.format(Number(saida.valor_total))}
+                </td>
+                <td className="p-4">{saida.quantidade_parcelas}x</td>
+                <td className="p-4 text-right">
+                  <button
+                    onClick={() => excluirSaida(saida.id)}
+                    className="text-xs font-semibold text-[#9b6d64]"
+                  >
+                    Excluir
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!saidas.length && (
+          <p className="p-8 text-center text-sm text-[#918b87]">
+            Nenhuma saída registrada.
+          </p>
+        )}
       </section>
       {open && (
         <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[#292524]/35 p-4">
