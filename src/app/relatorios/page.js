@@ -1,18 +1,19 @@
 import { createClient } from "@/lib/supabase/server";
+import { SeletorMes } from "@/components/reports/month-selector";
 
 const money = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
 });
 
-export default async function ReportsPage() {
-  const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
-    .toISOString()
-    .slice(0, 10);
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    .toISOString()
-    .slice(0, 10);
+export default async function PaginaRelatorios({ searchParams }) {
+  const parametros = await searchParams;
+  const mesSelecionado = /^\d{4}-\d{2}$/.test(parametros?.mes || "")
+    ? parametros.mes
+    : new Date().toISOString().slice(0, 7);
+  const [ano, mes] = mesSelecionado.split("-").map(Number);
+  const firstDay = new Date(ano, mes - 1, 1).toISOString().slice(0, 10);
+  const lastDay = new Date(ano, mes, 0).toISOString().slice(0, 10);
   const supabase = await createClient();
   const [
     { data: sales },
@@ -67,8 +68,9 @@ export default async function ReportsPage() {
           Relatórios
         </h1>
         <p className="mt-2 text-sm text-[#78716c]">
-          Resumo financeiro e operacional do mês atual.
+          Resumo financeiro e operacional do período selecionado.
         </p>
+        <SeletorMes mes={mesSelecionado} />
       </header>
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map(([title, value, detail]) => (

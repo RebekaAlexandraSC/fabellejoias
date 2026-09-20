@@ -7,7 +7,7 @@ export default async function StockPage() {
     supabase
       .from("produtos")
       .select(
-        "id, referencia, descricao, categoria_id, quantidade_estoque, estoque_minimo, ativo, categorias(nome)",
+        "id, referencia, descricao, categoria_id, imagem_url, quantidade_estoque, estoque_minimo, ativo, categorias(nome)",
       )
       .order("referencia"),
     supabase

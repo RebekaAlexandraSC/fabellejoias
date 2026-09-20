@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export function SignOutButton() {
+export function SignOutButton({ className = "" }) {
   const router = useRouter();
   async function signOut() {
     await createClient().auth.signOut();
@@ -13,7 +13,7 @@ export function SignOutButton() {
   return (
     <button
       onClick={signOut}
-      className="cursor-pointer mt-3 text-xs font-semibold text-[#8f625a] transition hover:text-[#704b44]"
+      className={`mt-3 cursor-pointer text-xs font-semibold text-[#8f625a] transition hover:text-[#704b44] ${className}`}
     >
       Sair da conta
     </button>

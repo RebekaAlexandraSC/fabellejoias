@@ -13,6 +13,10 @@ export function StockManager({ products, categories }) {
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [produtoEmEdicao, setProdutoEmEdicao] = useState({ id: null });
+  const [imagemAmpliada, setImagemAmpliada] = useState({
+    url: "",
+    referencia: "",
+  });
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const visibleProducts = useMemo(
@@ -32,25 +36,72 @@ export function StockManager({ products, categories }) {
     setSaving(true);
     setMessage("");
     const values = Object.fromEntries(new FormData(form));
-    const dadosProduto = { referencia: values.referencia.trim(), descricao: values.descricao.trim() || null, categoria_id: values.categoria_id || null, estoque_minimo: Number(values.estoque_minimo || 0) };
-    const consulta = createClient().from("produtos");
-    const { error } = produtoEmEdicao.id ? await consulta.update(dadosProduto).eq("id", produtoEmEdicao.id) : await consulta.insert(dadosProduto);
-    setSaving(false);
+    const dadosProduto = {
+      referencia: values.referencia.trim(),
+      descricao: values.descricao.trim() || null,
+      categoria_id: values.categoria_id || null,
+      estoque_minimo: Number(values.estoque_minimo || 0),
+    };
+    const supabase = createClient();
+    const consulta = supabase.from("produtos");
+    const { data, error } = produtoEmEdicao.id
+      ? await consulta
+          .update(dadosProduto)
+          .eq("id", produtoEmEdicao.id)
+          .select("id")
+          .single()
+      : await consulta.insert(dadosProduto).select("id").single();
+    if (error) setSaving(false);
     if (error)
       return setMessage(
         error.code === "23505"
           ? "Essa referência já está cadastrada."
           : "Não foi possível salvar o produto.",
       );
+
+    const arquivo = form.elements.imagem?.files?.[0];
+    if (arquivo) {
+      const { data: dadosAutenticacao } = await supabase.auth.getUser();
+      const extensao = arquivo.name.split(".").pop() || "jpg";
+      const caminho = `${dadosAutenticacao.user.id}/${data.id}-${Date.now()}.${extensao}`;
+      const { error: erroUpload } = await supabase.storage
+        .from("imagens-produtos")
+        .upload(caminho, arquivo, { upsert: true });
+      if (erroUpload) {
+        setSaving(false);
+        return setMessage(
+          `Produto salvo, mas não foi possível enviar a imagem: ${erroUpload.message}`,
+        );
+      }
+      const { data: urlPublica } = supabase.storage
+        .from("imagens-produtos")
+        .getPublicUrl(caminho);
+      await supabase
+        .from("produtos")
+        .update({ imagem_url: urlPublica.publicUrl })
+        .eq("id", data.id);
+    }
+    setSaving(false);
     setShowProductForm(false);
     setProdutoEmEdicao({ id: null });
     router.refresh();
   }
 
   async function excluirProduto(id) {
-    if (!confirm("Excluir este produto? Produtos com entradas ou vendas não podem ser removidos para preservar o histórico.")) return;
-    const { error } = await createClient().from("produtos").delete().eq("id", id);
-    if (error) return setMessage("Este produto possui histórico de estoque ou vendas e não pode ser excluído.");
+    if (
+      !confirm(
+        "Excluir este produto? Produtos com entradas ou vendas não podem ser removidos para preservar o histórico.",
+      )
+    )
+      return;
+    const { error } = await createClient()
+      .from("produtos")
+      .delete()
+      .eq("id", id);
+    if (error)
+      return setMessage(
+        "Este produto possui histórico de estoque ou vendas e não pode ser excluído.",
+      );
     router.refresh();
   }
 
@@ -188,7 +239,7 @@ export function StockManager({ products, categories }) {
             <table className="w-full min-w-[650px] text-left">
               <thead className="bg-[#fcfbfa] text-xs font-semibold uppercase tracking-wide text-[#9a9591]">
                 <tr>
-                  <th className="px-6 py-3">Referência</th>
+                  <th className="px-6 py-3">Produto</th>
                   <th className="px-6 py-3">Categoria</th>
                   <th className="px-6 py-3 text-center">Em estoque</th>
                   <th className="px-6 py-3 text-center">Mínimo</th>
@@ -203,16 +254,57 @@ export function StockManager({ products, categories }) {
                   return (
                     <tr key={product.id} className="text-sm text-[#57534e]">
                       <td className="px-6 py-4">
-                        <p className="font-semibold text-[#3f3a37]">
-                          {product.referencia}
-                        </p>
-                        <p className="mt-0.5 text-xs text-[#9a9591]">
-                          {product.descricao || "Sem descrição"}
-                        </p>
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              product.imagem_url &&
+                              setImagemAmpliada({
+                                url: product.imagem_url,
+                                referencia: product.referencia,
+                              })
+                            }
+                            className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-[#f8ece9] text-xs font-semibold text-[#9b6d64]"
+                            aria-label={`Ver imagem de ${product.referencia}`}
+                          >
+                            {product.imagem_url ? (
+                              <img
+                                src={product.imagem_url}
+                                alt={product.referencia}
+                                className="size-full object-cover"
+                              />
+                            ) : (
+                              product.referencia.slice(0, 1)
+                            )}
+                          </button>
+                          <div>
+                            <p className="font-semibold text-[#3f3a37]">
+                              {product.referencia}
+                            </p>
+                            <p className="mt-0.5 text-xs text-[#9a9591]">
+                              {product.descricao || "Sem descrição"}
+                            </p>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button onClick={() => { setProdutoEmEdicao(product); setShowProductForm(true); setMessage(""); }} className="cursor-pointer mr-3 text-xs font-semibold text-[#9b6d64]">Editar</button>
-                        <button onClick={() => excluirProduto(product.id)} className="cursor-pointer text-xs font-semibold text-[#9b6d64]">Excluir</button></td>
+                        <button
+                          onClick={() => {
+                            setProdutoEmEdicao(product);
+                            setShowProductForm(true);
+                            setMessage("");
+                          }}
+                          className="cursor-pointer mr-3 text-xs font-semibold text-[#9b6d64]"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => excluirProduto(product.id)}
+                          className="cursor-pointer text-xs font-semibold text-[#9b6d64]"
+                        >
+                          Excluir
+                        </button>
+                      </td>
                       <td className="px-6 py-4">
                         {product.categorias?.nome || "Sem categoria"}
                       </td>
@@ -377,6 +469,18 @@ export function StockManager({ products, categories }) {
                 />
                 <label className="block">
                   <span className="mb-1.5 block text-sm font-medium text-[#57534e]">
+                    Imagem do produto{" "}
+                    <em className="font-normal text-[#9a9591]">(opcional)</em>
+                  </span>
+                  <input
+                    name="imagem"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="w-full rounded-xl border border-[#ded8d4] p-2 text-sm"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-[#57534e]">
                     Categoria
                   </span>
                   <select
@@ -397,10 +501,19 @@ export function StockManager({ products, categories }) {
                   label="Estoque mínimo"
                   type="number"
                   min="0"
-                  defaultValue={produtoEmEdicao.id ? produtoEmEdicao.estoque_minimo : "0"}
+                  defaultValue={
+                    produtoEmEdicao.id ? produtoEmEdicao.estoque_minimo : "0"
+                  }
                   required
                 />
-                <Submit saving={saving} label={produtoEmEdicao.id ? "Salvar alterações" : "Cadastrar produto"} />
+                <Submit
+                  saving={saving}
+                  label={
+                    produtoEmEdicao.id
+                      ? "Salvar alterações"
+                      : "Cadastrar produto"
+                  }
+                />
               </form>
             ) : (
               <form
@@ -419,6 +532,32 @@ export function StockManager({ products, categories }) {
                 <Submit saving={saving} label="Cadastrar categoria" />
               </form>
             )}
+          </div>
+        </div>
+      )}
+      {imagemAmpliada.url && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-[#292524]/70 p-5"
+          onClick={() => setImagemAmpliada({ url: "", referencia: "" })}
+        >
+          <div
+            className="animate-modal-in relative max-h-full max-w-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              onClick={() => setImagemAmpliada({ url: "", referencia: "" })}
+              className="absolute -right-2 -top-2 grid size-9 place-items-center rounded-full bg-white text-xl text-[#57534e] shadow"
+            >
+              ×
+            </button>
+            <img
+              src={imagemAmpliada.url}
+              alt={imagemAmpliada.referencia}
+              className="max-h-[80vh] max-w-full rounded-2xl object-contain shadow-2xl"
+            />
+            <p className="mt-3 text-center text-sm font-semibold text-white">
+              {imagemAmpliada.referencia}
+            </p>
           </div>
         </div>
       )}
