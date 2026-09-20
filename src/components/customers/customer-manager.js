@@ -26,14 +26,19 @@ export function CustomerManager({ customers }) {
     setSaving(true);
     setMessage("");
     const values = Object.fromEntries(new FormData(form));
-    const dadosCliente = { nome: values.nome.trim(), telefone: values.telefone.trim() || null, observacao: values.observacao.trim() || null };
+    const telefone = values.telefone.replace(/\D/g, "").trim();
+    const dadosCliente = {
+      nome: values.nome.trim(),
+      telefone: telefone || null,
+      observacao: values.observacao.trim() || null,
+    };
     const consulta = createClient().from("clientes");
-    const { error } = clienteEmEdicao.id ? await consulta.update(dadosCliente).eq("id", clienteEmEdicao.id) : await consulta.insert(dadosCliente);
+    const { error } = clienteEmEdicao.id
+      ? await consulta.update(dadosCliente).eq("id", clienteEmEdicao.id)
+      : await consulta.insert(dadosCliente);
     setSaving(false);
     if (error)
-      return setMessage(
-        "Não foi possível salvar a cliente. Tente novamente.",
-      );
+      return setMessage("Não foi possível salvar a cliente. Tente novamente.");
     setOpen(false);
     setClienteEmEdicao({ id: null });
     router.refresh();
@@ -99,9 +104,21 @@ export function CustomerManager({ customers }) {
                   <h3 className="truncate text-sm font-semibold text-[#44403c]">
                     {customer.nome}
                   </h3>
-                  <p className="mt-0.5 text-xs text-[#8f8985]">
-                    {customer.telefone || "Telefone não informado"}
-                  </p>
+                  {customer.telefone ? (
+                    <a
+                      href={`https://wa.me/${customer.telefone.replace(/\D/g, "")}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <p className="mt-0.5 text-xs text-[#8f8985]">
+                        {formatarTelefone(customer.telefone)}
+                      </p>
+                    </a>
+                  ) : (
+                    <p className="mt-0.5 text-xs text-[#8f8985]">
+                      Telefone não informado
+                    </p>
+                  )}
                 </div>
                 <div className="hidden max-w-xs flex-1 text-sm text-[#78716c] sm:block">
                   {customer.observacao || "—"}
@@ -111,7 +128,16 @@ export function CustomerManager({ customers }) {
                 >
                   {customer.ativo ? "Ativa" : "Inativa"}
                 </span>
-                <button onClick={() => { setClienteEmEdicao(customer); setOpen(true); setMessage(""); }} className="text-xs font-semibold text-[#9b6d64]">Editar</button>
+                <button
+                  onClick={() => {
+                    setClienteEmEdicao(customer);
+                    setOpen(true);
+                    setMessage("");
+                  }}
+                  className="text-xs font-semibold text-[#9b6d64]"
+                >
+                  Editar
+                </button>
               </article>
             ))}
           </div>
@@ -183,7 +209,7 @@ export function CustomerManager({ customers }) {
                 label="Telefone"
                 name="telefone"
                 type="tel"
-                placeholder="(00) 00000-0000"
+                placeholder="11999999999"
                 defaultValue={clienteEmEdicao.telefone || ""}
               />
               <label className="block">
@@ -202,7 +228,11 @@ export function CustomerManager({ customers }) {
                 disabled={saving}
                 className="w-full rounded-xl bg-[#9b6d64] px-4 py-3 text-sm font-semibold text-white hover:bg-[#855b53] disabled:opacity-70"
               >
-                {saving ? "Salvando..." : clienteEmEdicao.id ? "Salvar alterações" : "Cadastrar cliente"}
+                {saving
+                  ? "Salvando..."
+                  : clienteEmEdicao.id
+                    ? "Salvar alterações"
+                    : "Cadastrar cliente"}
               </button>
             </form>
           </div>
@@ -210,6 +240,20 @@ export function CustomerManager({ customers }) {
       )}
     </div>
   );
+}
+
+function formatarTelefone(valor) {
+  const numeros = valor.replace(/\D/g, "").slice(0, 11);
+
+  if (numeros.length === 11) {
+    return `(${numeros.slice(0, 2)}) ${numeros.slice(2, 7)}-${numeros.slice(7)}`;
+  }
+
+  if (numeros.length === 10) {
+    return `(${numeros.slice(0, 2)}) ${numeros.slice(2, 6)}-${numeros.slice(6)}`;
+  }
+
+  return valor;
 }
 
 function Field({ label, ...props }) {

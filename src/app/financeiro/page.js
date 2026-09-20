@@ -7,7 +7,7 @@ export default async function FinancePage() {
     await Promise.all([
       supabase
         .from("parcelas")
-        .select("id, valor, data_vencimento, vendas(clientes(nome))")
+        .select("id, valor, data_vencimento, vendas(clientes(nome, telefone))")
         .is("data_pagamento", null)
         .order("data_vencimento")
         .limit(20),

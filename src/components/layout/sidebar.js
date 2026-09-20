@@ -29,7 +29,11 @@ export function Sidebar() {
     <aside className="relative border-b border-[#ebe8e5] bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-64 lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r">
       <div className="flex items-center justify-center px-5 py-4 lg:px-6 lg:py-7">
         <Link href="/" className="flex items-center justify-center gap-3">
-            <img src="/logo-fabelle.png" alt="Logo Fabelle Joias" className="w-1/4" />
+            <img
+              src="/logo-fabelle.png"
+              alt="Logo Fabelle Joias"
+              className="w-3/4"
+            />
         </Link>
         <button onClick={() => setMenuAberto(!menuAberto)} className="rounded-lg p-2 text-[#786e69] hover:bg-[#faf6f4] lg:hidden">
           <Icon name={menuAberto ? "close" : "menu"} size={22} />

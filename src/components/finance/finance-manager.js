@@ -321,10 +321,11 @@ function InstallmentList({ title, items, type, onPay }) {
         <div className="divide-y divide-[#f0edeb]">
           {items.map((item) => {
             const overdue = item.data_vencimento < today;
+            const cliente = item.vendas?.clientes;
             const name =
-              type === "receive"
-                ? item.vendas?.clientes?.nome
-                : item.saidas?.descricao;
+              type === "receive" ? cliente?.nome : item.saidas?.descricao;
+            const linkCobranca =
+              type === "receive" ? criarLinkCobranca(item, cliente) : null;
             return (
               <div
                 key={item.id}
@@ -353,6 +354,24 @@ function InstallmentList({ title, items, type, onPay }) {
                   >
                     Marcar como paga
                   </button>
+                  {type === "receive" &&
+                    (linkCobranca ? (
+                      <a
+                        href={linkCobranca}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ml-3 text-xs font-semibold text-[#4f8c6d]"
+                      >
+                        Cobrar
+                      </a>
+                    ) : (
+                      <span
+                        title="Cadastre o telefone da cliente para enviar a cobrança."
+                        className="ml-3 cursor-not-allowed text-xs font-semibold text-[#b5afa9]"
+                      >
+                        Cobrar
+                      </span>
+                    ))}
                 </div>
               </div>
             );
@@ -366,6 +385,21 @@ function InstallmentList({ title, items, type, onPay }) {
     </section>
   );
 }
+
+function criarLinkCobranca(parcela, cliente) {
+  const telefone = cliente?.telefone?.replace(/\D/g, "");
+
+  if (!telefone) return null;
+
+  const telefoneWhatsApp = telefone.length <= 11 ? `55${telefone}` : telefone;
+  const vencimento = new Date(
+    `${parcela.data_vencimento}T12:00:00`,
+  ).toLocaleDateString("pt-BR");
+  const mensagem = `Olá, ${cliente.nome}! Tudo bem?\nPassando para lembrar que o pagamento no valor de ${money.format(Number(parcela.valor || 0))} vence em ${vencimento}. Por gentileza, programe o pagamento até essa data.\nFico à disposição. Obrigado(a)!`;
+
+  return `https://wa.me/${telefoneWhatsApp}?text=${encodeURIComponent(mensagem)}`;
+}
+
 function Field({ label, ...props }) {
   return (
     <label className="block">
