@@ -5,6 +5,7 @@ const ITENS_POR_PAGINA = 50;
 
 export default async function StockPage({ searchParams }) {
   const parametros = await searchParams;
+  const busca = (parametros?.busca || "").trim();
   const paginaSolicitada = Number(parametros?.pagina || 1);
   const pagina =
     Number.isInteger(paginaSolicitada) && paginaSolicitada > 0
@@ -12,15 +13,23 @@ export default async function StockPage({ searchParams }) {
       : 1;
   const inicio = (pagina - 1) * ITENS_POR_PAGINA;
   const supabase = await createClient();
+  let consultaProdutos = supabase
+    .from("produtos")
+    .select(
+      "id, referencia, descricao, categoria_id, imagem_url, quantidade_estoque, estoque_minimo, ativo, categorias(nome)",
+      { count: "exact" },
+    )
+    .order("referencia");
+
+  if (busca) {
+    const termoBusca = busca.replace(/[(),]/g, " ");
+    consultaProdutos = consultaProdutos.or(
+      `referencia.ilike.%${termoBusca}%,descricao.ilike.%${termoBusca}%`,
+    );
+  }
+
   const [{ data: products, count }, { data: categories }, { data: resumoEstoque }] = await Promise.all([
-    supabase
-      .from("produtos")
-      .select(
-        "id, referencia, descricao, categoria_id, imagem_url, quantidade_estoque, estoque_minimo, ativo, categorias(nome)",
-        { count: "exact" },
-      )
-      .order("referencia")
-      .range(inicio, inicio + ITENS_POR_PAGINA - 1),
+    consultaProdutos.range(inicio, inicio + ITENS_POR_PAGINA - 1),
     supabase
       .from("categorias")
       .select("id, nome")
@@ -37,6 +46,7 @@ export default async function StockPage({ searchParams }) {
       totalProdutos={count || 0}
       itensPorPagina={ITENS_POR_PAGINA}
       resumoEstoque={resumoEstoque?.[0] || null}
+      buscaInicial={busca}
     />
   );
 }

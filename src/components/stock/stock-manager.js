@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -13,9 +13,10 @@ export function StockManager({
   totalProdutos = 0,
   itensPorPagina = 50,
   resumoEstoque = null,
+  buscaInicial = "",
 }) {
   const router = useRouter();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(buscaInicial);
   const [showProductForm, setShowProductForm] = useState(false);
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [showEntryForm, setShowEntryForm] = useState(false);
@@ -39,8 +40,29 @@ export function StockManager({
     (product) => product.quantidade_estoque <= product.estoque_minimo,
   ).length;
   const totalPaginas = Math.max(1, Math.ceil(totalProdutos / itensPorPagina));
+
+  useEffect(() => {
+    setSearch(buscaInicial);
+  }, [buscaInicial]);
+
+  useEffect(() => {
+    const busca = search.trim();
+
+    if (busca === buscaInicial) return;
+
+    const temporizador = setTimeout(() => {
+      const parametros = new URLSearchParams();
+      if (busca) parametros.set("busca", busca);
+      router.replace(`/estoque${parametros.size ? `?${parametros}` : ""}`);
+    }, 300);
+
+    return () => clearTimeout(temporizador);
+  }, [buscaInicial, router, search]);
+
   function irParaPagina(novaPagina) {
-    router.push(`/estoque?pagina=${novaPagina}`);
+    const parametros = new URLSearchParams({ pagina: String(novaPagina) });
+    if (buscaInicial) parametros.set("busca", buscaInicial);
+    router.push(`/estoque?${parametros}`);
   }
 
   async function salvarProduto(form) {

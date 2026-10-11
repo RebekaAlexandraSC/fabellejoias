@@ -221,18 +221,8 @@ async function getDashboardData(mesSelecionado) {
       .select("valor_total")
       .gte("data_venda", firstDay)
       .lte("data_venda", lastDay),
-    supabase
-      .from("parcelas")
-      .select("valor")
-      .is("data_pagamento", null)
-      .gte("data_vencimento", firstDay)
-      .lte("data_vencimento", lastDay),
-    supabase
-      .from("parcelas_saidas")
-      .select("valor")
-      .is("data_pagamento", null)
-      .gte("data_vencimento", firstDay)
-      .lte("data_vencimento", lastDay),
+    supabase.from("parcelas").select("valor").is("data_pagamento", null),
+    supabase.from("parcelas_saidas").select("valor").is("data_pagamento", null),
     supabase
       .from("produtos")
       .select("quantidade_estoque, estoque_minimo")
@@ -252,15 +242,11 @@ async function getDashboardData(mesSelecionado) {
       .from("parcelas")
       .select("id")
       .is("data_pagamento", null)
-      .gte("data_vencimento", firstDay)
-      .lte("data_vencimento", lastDay)
       .lt("data_vencimento", todayISO),
     supabase
       .from("parcelas_saidas")
       .select("id")
       .is("data_pagamento", null)
-      .gte("data_vencimento", firstDay)
-      .lte("data_vencimento", lastDay)
       .lt("data_vencimento", todayISO),
   ]);
   const sum = (rows, field) =>
