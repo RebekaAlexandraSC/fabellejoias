@@ -18,16 +18,27 @@ export function FinanceManager({
   receivables = [],
   payables = [],
   saidas = [],
+  contasRecebidas = [],
+  contasPagas = [],
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [parcelaParaQuitar, setParcelaParaQuitar] = useState(null);
   const totalReceive = receivables.reduce(
     (sum, item) => sum + Number(item.valor || 0),
     0,
   );
   const totalPay = payables.reduce(
+    (sum, item) => sum + Number(item.valor || 0),
+    0,
+  );
+  const totalRecebido = contasRecebidas.reduce(
+    (sum, item) => sum + Number(item.valor || 0),
+    0,
+  );
+  const totalPago = contasPagas.reduce(
     (sum, item) => sum + Number(item.valor || 0),
     0,
   );
@@ -50,15 +61,28 @@ export function FinanceManager({
     setOpen(false);
     router.refresh();
   }
-  async function pay(id) {
+  async function quitarParcela(form) {
+    const dados = Object.fromEntries(new FormData(form));
+    const valorPago = Number(dados.valor_pago);
+
+    if (!parcelaParaQuitar || valorPago <= 0) {
+      return setMessage("Informe um valor válido para a quitação.");
+    }
+
+    setSaving(true);
     const { error } = await createClient().rpc("quitar_parcela", {
-      p_parcela_id: id,
+      p_parcela_id: parcelaParaQuitar.id,
       p_data_pagamento: today,
       p_forma_pagamento: "pix",
+      p_valor_pago: valorPago,
     });
-    if (error)
+    setSaving(false);
+    if (error) {
       setMessage(error.message || "Não foi possível marcar como paga.");
-    else router.refresh();
+    } else {
+      setParcelaParaQuitar(null);
+      router.refresh();
+    }
   }
   async function excluirSaida(id) {
     if (
@@ -72,6 +96,10 @@ export function FinanceManager({
     });
     if (error) return setMessage(error.message);
     router.refresh();
+  }
+  function abrirQuitacao(parcela) {
+    setMessage("");
+    setParcelaParaQuitar(parcela);
   }
   return (
     <div className="mx-auto max-w-7xl">
@@ -101,7 +129,7 @@ export function FinanceManager({
           {message}
         </p>
       )}
-      <section className="grid gap-4 sm:grid-cols-2">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Summary
           title="A receber"
           value={money.format(totalReceive)}
@@ -116,19 +144,33 @@ export function FinanceManager({
           icon="receipt"
           tone="violet"
         />
+        <Summary
+          title="Contas recebidas"
+          value={money.format(totalRecebido)}
+          detail={`${contasRecebidas.length} ${contasRecebidas.length === 1 ? "parcela recebida" : "parcelas recebidas"} no mês`}
+          icon="wallet"
+          tone="emerald"
+        />
+        <Summary
+          title="Contas pagas"
+          value={money.format(totalPago)}
+          detail={`${contasPagas.length} ${contasPagas.length === 1 ? "parcela paga" : "parcelas pagas"} no mês`}
+          icon="receipt"
+          tone="amber"
+        />
       </section>
       <section className="mt-7 grid gap-6 xl:grid-cols-2">
         <InstallmentList
           title="A receber"
           items={receivables}
           type="receive"
-          onPay={pay}
+          onPay={abrirQuitacao}
         />
         <InstallmentList
           title="A pagar"
           items={payables}
           type="pay"
-          onPay={pay}
+          onPay={abrirQuitacao}
         />
       </section>
       <section className="mt-7 overflow-x-auto rounded-2xl border border-[#ebe8e5] bg-white">
@@ -288,6 +330,67 @@ export function FinanceManager({
           </div>
         </div>
       )}
+      {parcelaParaQuitar && (
+        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[#292524]/35 p-4">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              quitarParcela(event.currentTarget);
+            }}
+            className="my-5 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-[#292524]">
+                  {parcelaParaQuitar.tipo === "receive"
+                    ? "Registrar recebimento"
+                    : "Registrar pagamento"}
+                </h2>
+                <p className="mt-1 text-sm text-[#78716c]">
+                  {parcelaParaQuitar.nome || "Parcela"} · vencimento em{" "}
+                  {formatarData(parcelaParaQuitar.data_vencimento)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setParcelaParaQuitar(null)}
+                className="text-xl text-[#9a9591]"
+              >
+                ×
+              </button>
+            </div>
+            <p className="mt-5 rounded-xl bg-[#faf6f4] p-3 text-sm text-[#675e59]">
+              Valor atual da parcela:{" "}
+              {money.format(Number(parcelaParaQuitar.valor))}
+            </p>
+            {message && (
+              <p className="mt-4 rounded-xl bg-[#fff5ed] p-3 text-sm text-[#9a5b3e]">
+                {message}
+              </p>
+            )}
+            <Field
+              name="valor_pago"
+              label="Valor recebido/pago"
+              type="number"
+              min="0.01"
+              max={parcelaParaQuitar.valor}
+              step="0.01"
+              defaultValue={parcelaParaQuitar.valor}
+              required
+            />
+            <p className="mt-3 text-xs leading-5 text-[#78716c]">
+              Se o valor for menor, o saldo será redistribuído entre as próximas
+              parcelas pendentes.
+            </p>
+            <button
+              disabled={saving}
+              className="mt-5 w-full rounded-xl bg-[#9b6d64] py-3 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {saving ? "Salvando..." : "Confirmar quitação"}
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
@@ -295,6 +398,8 @@ function Summary({ title, value, detail, icon, tone }) {
   const colors = {
     rose: "bg-[#f8ece9] text-[#9b6d64]",
     violet: "bg-[#f0edfa] text-[#7566a0]",
+    emerald: "bg-[#e8f5ee] text-[#4f9673]",
+    amber: "bg-[#fff5df] text-[#c58b2c]",
   };
   return (
     <article className="flex items-start justify-between rounded-2xl border border-[#ebe8e5] bg-white p-5">
@@ -349,7 +454,7 @@ function InstallmentList({ title, items, type, onPay }) {
                     {money.format(Number(item.valor))}
                   </p>
                   <button
-                    onClick={() => onPay(item.id)}
+                    onClick={() => onPay({ ...item, tipo: type, nome: name })}
                     className="mt-1 text-xs font-semibold text-[#9b6d64]"
                   >
                     Marcar como paga
@@ -398,6 +503,10 @@ function criarLinkCobranca(parcela, cliente) {
   const mensagem = `Olá, ${cliente.nome}! Tudo bem?\nPassando para lembrar que o pagamento no valor de ${money.format(Number(parcela.valor || 0))} vence em ${vencimento}. Por gentileza, programe o pagamento até essa data.\nFico à disposição. Obrigado(a)!`;
 
   return `https://wa.me/${telefoneWhatsApp}?text=${encodeURIComponent(mensagem)}`;
+}
+
+function formatarData(valor) {
+  return new Date(`${valor}T12:00:00`).toLocaleDateString("pt-BR");
 }
 
 function Field({ label, ...props }) {

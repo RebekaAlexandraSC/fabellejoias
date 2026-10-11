@@ -12,7 +12,9 @@ export default async function PaginaVendas() {
         .order("nome"),
       supabase
         .from("produtos")
-        .select("id, referencia, descricao, quantidade_estoque")
+        .select(
+          "id, referencia, descricao, quantidade_estoque, entradas_estoque(preco_sugerido, data_entrada, quantidade_disponivel)",
+        )
         .eq("ativo", true)
         .gt("quantidade_estoque", 0)
         .order("referencia"),
@@ -22,10 +24,26 @@ export default async function PaginaVendas() {
         .order("data_venda", { ascending: false })
         .limit(10),
     ]);
+  const produtosComPrecoSugerido = (products || []).map(
+    ({ entradas_estoque: entradas, ...produto }) => {
+      const entradaMaisRecente = (entradas || [])
+        .filter((entrada) => entrada.quantidade_disponivel > 0)
+        .sort(
+          (entradaA, entradaB) =>
+            new Date(entradaB.data_entrada) - new Date(entradaA.data_entrada),
+        )[0];
+
+      return {
+        ...produto,
+        preco_sugerido: entradaMaisRecente?.preco_sugerido || null,
+      };
+    },
+  );
+
   return (
     <GerenciadorVendas
       customers={customers || []}
-      products={products || []}
+      products={produtosComPrecoSugerido}
       sales={sales || []}
     />
   );

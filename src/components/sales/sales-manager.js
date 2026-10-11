@@ -28,7 +28,9 @@ export function GerenciadorVendas({ customers, products, sales }) {
     () =>
       items.reduce(
         (sum, item) =>
-          sum + Number(item.quantidade || 0) * Number(item.preco_unitario || 0),
+          sum +
+          Number(item.quantidade || 0) *
+            converterMoedaParaNumero(item.preco_unitario),
         0,
       ),
     [items],
@@ -37,6 +39,25 @@ export function GerenciadorVendas({ customers, products, sales }) {
     setItems(
       items.map((item, itemIndex) =>
         itemIndex === index ? { ...item, [field]: value } : item,
+      ),
+    );
+  }
+  function selecionarProduto(index, produtoId) {
+    const produto = products.find((item) => item.id === produtoId);
+    const precoSugerido =
+      produto?.preco_sugerido != null
+        ? formatarValorDoBanco(produto.preco_sugerido)
+        : "";
+
+    setItems(
+      items.map((item, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...item,
+              produto_id: produtoId,
+              preco_unitario: precoSugerido || item.preco_unitario,
+            }
+          : item,
       ),
     );
   }
@@ -54,9 +75,12 @@ export function GerenciadorVendas({ customers, products, sales }) {
       .map((item) => ({
         produto_id: item.produto_id,
         quantidade: Number(item.quantidade),
-        preco_unitario: Number(item.preco_unitario),
+        preco_unitario: converterMoedaParaNumero(item.preco_unitario),
       }));
-    if (!clienteSelecionado || validItems.some((item) => !item.produto_id)) { setSaving(false); return setMessage("Selecione uma cliente e produtos válidos na lista."); }
+    if (!clienteSelecionado || validItems.some((item) => !item.produto_id)) {
+      setSaving(false);
+      return setMessage("Selecione uma cliente e produtos válidos na lista.");
+    }
     const { error } = await createClient().rpc("registrar_venda", {
       p_cliente_id: clienteSelecionado,
       p_itens: validItems,
@@ -210,7 +234,15 @@ export function GerenciadorVendas({ customers, products, sales }) {
                 <span className="mb-1.5 block text-sm font-medium text-[#57534e]">
                   Cliente
                 </span>
-                  <CampoSelecao opcoes={customers.map((customer) => ({ valor: customer.id, rotulo: customer.nome }))} valor={clienteSelecionado} aoSelecionar={setClienteSelecionado} placeholder="Buscar cliente" />
+                <CampoSelecao
+                  opcoes={customers.map((customer) => ({
+                    valor: customer.id,
+                    rotulo: customer.nome,
+                  }))}
+                  valor={clienteSelecionado}
+                  aoSelecionar={setClienteSelecionado}
+                  placeholder="Buscar cliente"
+                />
               </label>
               <div>
                 <div className="mb-2 flex items-center justify-between">
@@ -236,7 +268,18 @@ export function GerenciadorVendas({ customers, products, sales }) {
                       key={index}
                       className="grid grid-cols-[1fr_80px_100px_24px] gap-2"
                     >
-                        <CampoSelecao opcoes={products.map((product) => ({ valor: product.id, rotulo: product.referencia, detalhe: `${product.descricao || "Sem descrição"} · ${product.quantidade_estoque} em estoque` }))} valor={item.produto_id} aoSelecionar={(valor) => atualizarItem(index, "produto_id", valor)} placeholder="Buscar produto" />
+                      <CampoSelecao
+                        opcoes={products.map((product) => ({
+                          valor: product.id,
+                          rotulo: product.referencia,
+                          detalhe: `${product.descricao || "Sem descrição"} · ${product.quantidade_estoque} em estoque`,
+                        }))}
+                        valor={item.produto_id}
+                        aoSelecionar={(valor) =>
+                          selecionarProduto(index, valor)
+                        }
+                        placeholder="Buscar produto"
+                      />
                       <input
                         value={item.quantidade}
                         onChange={(event) =>
@@ -253,14 +296,13 @@ export function GerenciadorVendas({ customers, products, sales }) {
                           atualizarItem(
                             index,
                             "preco_unitario",
-                            event.target.value,
+                            formatarMoeda(event.target.value),
                           )
                         }
-                        type="number"
-                        min="0"
-                        step="0.01"
+                        type="text"
+                        inputMode="numeric"
                         required
-                        placeholder="Preço"
+                        placeholder="0,00"
                         className="rounded-xl border border-[#ded8d4] px-2 text-sm"
                       />
                       <button
@@ -275,7 +317,7 @@ export function GerenciadorVendas({ customers, products, sales }) {
                       >
                         ×
                       </button>
-                  </div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -332,6 +374,30 @@ export function GerenciadorVendas({ customers, products, sales }) {
     </div>
   );
 }
+
+function converterMoedaParaNumero(valor) {
+  const numeros = String(valor || "").replace(/\D/g, "");
+  return numeros ? Number(numeros) / 100 : 0;
+}
+
+function formatarMoeda(valor) {
+  const numeros = String(valor || "").replace(/\D/g, "");
+
+  if (!numeros) return "";
+
+  return (Number(numeros) / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function formatarValorDoBanco(valor) {
+  return Number(valor).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 function Field({ label, ...props }) {
   return (
     <label className="block">
