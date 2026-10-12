@@ -50,6 +50,11 @@ export function CampoSelecao({ opcoes, valor, aoSelecionar, placeholder }) {
               >
                 <span className="block font-medium text-[#44403c]">
                   {opcao.rotulo}
+                  {opcao.complemento && (
+                    <span className="ml-1 font-normal text-[#78716c]">
+                      {opcao.complemento}
+                    </span>
+                  )}
                 </span>
                 {opcao.detalhe && (
                   <span className="block text-xs text-[#918b87]">

@@ -268,18 +268,35 @@ export function GerenciadorVendas({ customers, products, sales }) {
                       key={index}
                       className="grid grid-cols-[1fr_80px_100px_24px] gap-2"
                     >
-                      <CampoSelecao
-                        opcoes={products.map((product) => ({
-                          valor: product.id,
-                          rotulo: product.referencia,
-                          detalhe: `${product.descricao || "Sem descrição"} · ${product.quantidade_estoque} em estoque`,
-                        }))}
-                        valor={item.produto_id}
-                        aoSelecionar={(valor) =>
-                          selecionarProduto(index, valor)
-                        }
-                        placeholder="Buscar produto"
-                      />
+                      <div>
+                        <CampoSelecao
+                          opcoes={products.map((product) => ({
+                            valor: product.id,
+                            rotulo: product.referencia,
+                            complemento:
+                              product.preco_sugerido != null
+                                ? `· ${money.format(Number(product.preco_sugerido))}`
+                                : "",
+                            detalhe: `${product.descricao || "Sem descrição"} · ${product.quantidade_estoque} em estoque`,
+                          }))}
+                          valor={item.produto_id}
+                          aoSelecionar={(valor) =>
+                            selecionarProduto(index, valor)
+                          }
+                          placeholder="Buscar produto"
+                        />
+                        {products.find(
+                          (product) => product.id === item.produto_id,
+                        )?.descricao && (
+                          <p className="mt-1 truncate text-xs text-[#918b87]">
+                            {
+                              products.find(
+                                (product) => product.id === item.produto_id,
+                              ).descricao
+                            }
+                          </p>
+                        )}
+                      </div>
                       <input
                         value={item.quantidade}
                         onChange={(event) =>

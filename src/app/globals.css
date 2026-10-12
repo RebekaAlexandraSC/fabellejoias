@@ -62,6 +62,12 @@ textarea {
 button:active {
   transform: scale(0.98);
 }
+button:not(:disabled) {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
