@@ -263,79 +263,82 @@ export function GerenciadorVendas({ customers, products, sales }) {
                   </button>
                 </div>
                 <div className="space-y-3">
-                  {items.map((item, index) => (
-                    <div
-                      key={index}
-                      className="grid grid-cols-[1fr_80px_100px_24px] gap-2"
-                    >
-                      <div>
-                        <CampoSelecao
-                          opcoes={products.map((product) => ({
-                            valor: product.id,
-                            rotulo: product.referencia,
-                            complemento:
-                              product.preco_sugerido != null
-                                ? `· ${money.format(Number(product.preco_sugerido))}`
-                                : "",
-                            detalhe: `${product.descricao || "Sem descrição"} · ${product.quantidade_estoque} em estoque`,
-                          }))}
-                          valor={item.produto_id}
-                          aoSelecionar={(valor) =>
-                            selecionarProduto(index, valor)
-                          }
-                          placeholder="Buscar produto"
-                        />
-                        {products.find(
-                          (product) => product.id === item.produto_id,
-                        )?.descricao && (
-                          <p className="mt-1 truncate text-xs text-[#918b87]">
-                            {
-                              products.find(
-                                (product) => product.id === item.produto_id,
-                              ).descricao
+                  {items.map((item, index) => {
+                    const produtoSelecionado = products.find(
+                      (product) => product.id === item.produto_id,
+                    );
+
+                    return (
+                      <div key={index} className="space-y-1">
+                        <div className="grid grid-cols-[1fr_80px_100px_24px] gap-2">
+                          <CampoSelecao
+                            opcoes={products.map((product) => ({
+                              valor: product.id,
+                              rotulo: product.referencia,
+                              complemento:
+                                product.preco_sugerido != null
+                                  ? `· ${money.format(Number(product.preco_sugerido))}`
+                                  : "",
+                              detalhe: `${product.descricao || "Sem descrição"} · ${product.quantidade_estoque} em estoque`,
+                            }))}
+                            valor={item.produto_id}
+                            aoSelecionar={(valor) =>
+                              selecionarProduto(index, valor)
                             }
+                            placeholder="Buscar produto"
+                          />
+                          <input
+                            value={item.quantidade}
+                            onChange={(event) =>
+                              atualizarItem(
+                                index,
+                                "quantidade",
+                                event.target.value,
+                              )
+                            }
+                            type="number"
+                            min="1"
+                            required
+                            className="rounded-xl border border-[#ded8d4] px-2 text-sm"
+                          />
+                          <input
+                            value={item.preco_unitario}
+                            onChange={(event) =>
+                              atualizarItem(
+                                index,
+                                "preco_unitario",
+                                formatarMoeda(event.target.value),
+                              )
+                            }
+                            type="text"
+                            inputMode="numeric"
+                            required
+                            placeholder="0,00"
+                            className="rounded-xl border border-[#ded8d4] px-2 text-sm"
+                          />
+                          <button
+                            type="button"
+                            disabled={items.length === 1}
+                            onClick={() =>
+                              setItems(
+                                items.filter(
+                                  (_, itemIndex) => itemIndex !== index,
+                                ),
+                              )
+                            }
+                            className="text-[#9a817b] disabled:opacity-30"
+                          >
+                            ×
+                          </button>
+                        </div>
+                        {produtoSelecionado?.descricao && (
+                          <p className="truncate text-xs text-[#918b87]">
+                            {produtoSelecionado.descricao}
                           </p>
                         )}
                       </div>
-                      <input
-                        value={item.quantidade}
-                        onChange={(event) =>
-                          atualizarItem(index, "quantidade", event.target.value)
-                        }
-                        type="number"
-                        min="1"
-                        required
-                        className="rounded-xl border border-[#ded8d4] px-2 text-sm"
-                      />
-                      <input
-                        value={item.preco_unitario}
-                        onChange={(event) =>
-                          atualizarItem(
-                            index,
-                            "preco_unitario",
-                            formatarMoeda(event.target.value),
-                          )
-                        }
-                        type="text"
-                        inputMode="numeric"
-                        required
-                        placeholder="0,00"
-                        className="rounded-xl border border-[#ded8d4] px-2 text-sm"
-                      />
-                      <button
-                        type="button"
-                        disabled={items.length === 1}
-                        onClick={() =>
-                          setItems(
-                            items.filter((_, itemIndex) => itemIndex !== index),
-                          )
-                        }
-                        className="text-[#9a817b] disabled:opacity-30"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
               <div className="rounded-xl bg-[#faf6f4] p-4 text-right">

@@ -24,7 +24,10 @@ export function CampoSelecao({ opcoes, valor, aoSelecionar, placeholder }) {
     <div className="relative">
       <input
         value={exibicao}
-        onFocus={() => setAberto(true)}
+        onFocus={() => {
+          setBusca(selecionada?.rotulo || "");
+          setAberto(true);
+        }}
         onChange={(evento) => {
           setBusca(evento.target.value);
           if (evento.target.value !== selecionada?.rotulo) aoSelecionar("");
