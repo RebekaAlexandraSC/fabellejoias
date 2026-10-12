@@ -63,9 +63,13 @@ export function FinanceManager({
   }
   async function quitarParcela(form) {
     const dados = Object.fromEntries(new FormData(form));
-    const valorPago = Number(dados.valor_pago);
+    const valorPago = converterMoedaParaNumero(dados.valor_pago);
 
-    if (!parcelaParaQuitar || valorPago <= 0) {
+    if (
+      !parcelaParaQuitar ||
+      valorPago <= 0 ||
+      valorPago > Number(parcelaParaQuitar.valor)
+    ) {
       return setMessage("Informe um valor válido para a quitação.");
     }
 
@@ -371,11 +375,14 @@ export function FinanceManager({
             <Field
               name="valor_pago"
               label="Valor recebido/pago"
-              type="number"
-              min="0.01"
-              max={parcelaParaQuitar.valor}
-              step="0.01"
-              defaultValue={parcelaParaQuitar.valor}
+              type="text"
+              inputMode="numeric"
+              defaultValue={formatarValorDoBanco(parcelaParaQuitar.valor)}
+              onChange={(event) => {
+                event.currentTarget.value = formatarMoeda(
+                  event.currentTarget.value,
+                );
+              }}
               required
             />
             <p className="mt-3 text-xs leading-5 text-[#78716c]">
@@ -507,6 +514,29 @@ function criarLinkCobranca(parcela, cliente) {
 
 function formatarData(valor) {
   return new Date(`${valor}T12:00:00`).toLocaleDateString("pt-BR");
+}
+
+function converterMoedaParaNumero(valor) {
+  const numeros = String(valor || "").replace(/\D/g, "");
+  return numeros ? Number(numeros) / 100 : 0;
+}
+
+function formatarMoeda(valor) {
+  const numeros = String(valor || "").replace(/\D/g, "");
+
+  if (!numeros) return "";
+
+  return (Number(numeros) / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function formatarValorDoBanco(valor) {
+  return Number(valor || 0).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function Field({ label, ...props }) {

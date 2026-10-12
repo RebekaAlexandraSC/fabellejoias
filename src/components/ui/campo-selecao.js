@@ -13,9 +13,9 @@ export function CampoSelecao({ opcoes, valor, aoSelecionar, placeholder }) {
     () =>
       opcoes
         .filter((opcao) =>
-          `${opcao.rotulo} ${opcao.detalhe || ""}`
-            .toLowerCase()
-            .includes(busca.toLowerCase()),
+          normalizarTexto(`${opcao.rotulo} ${opcao.detalhe || ""}`).includes(
+            normalizarTexto(busca),
+          ),
         )
         .slice(0, 8),
     [opcoes, busca],
@@ -67,4 +67,11 @@ export function CampoSelecao({ opcoes, valor, aoSelecionar, placeholder }) {
       )}
     </div>
   );
+}
+
+function normalizarTexto(valor) {
+  return valor
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
