@@ -65,11 +65,7 @@ export function FinanceManager({
     const dados = Object.fromEntries(new FormData(form));
     const valorPago = converterMoedaParaNumero(dados.valor_pago);
 
-    if (
-      !parcelaParaQuitar ||
-      valorPago <= 0 ||
-      valorPago > Number(parcelaParaQuitar.valor)
-    ) {
+    if (!parcelaParaQuitar || valorPago <= 0) {
       return setMessage("Informe um valor válido para a quitação.");
     }
 
@@ -387,7 +383,8 @@ export function FinanceManager({
             />
             <p className="mt-3 text-xs leading-5 text-[#78716c]">
               Se o valor for menor, o saldo será redistribuído entre as próximas
-              parcelas pendentes.
+              parcelas. Se for maior, ele abaterá as próximas parcelas
+              pendentes.
             </p>
             <button
               disabled={saving}
