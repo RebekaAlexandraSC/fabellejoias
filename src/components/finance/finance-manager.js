@@ -1,8 +1,11 @@
 "use client";
+import { useConfirmation } from "@/components/ui/confirmation-provider";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { reabrirParcela } from "@/lib/undo-payment";
+import { PaymentHistory } from "@/components/finance/payment-history";
 import { Icon } from "@/components/ui/icon";
 
 const money = new Intl.NumberFormat("pt-BR", {
@@ -20,11 +23,16 @@ export function FinanceManager({
   saidas = [],
   contasRecebidas = [],
   contasPagas = [],
+  historicoBaixas = [],
+  erroHistorico = "",
 }) {
   const router = useRouter();
+  const confirmAction = useConfirmation();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [desfazendoBaixa, setDesfazendoBaixa] = useState("");
+  const [feedbackBaixa, setFeedbackBaixa] = useState(null);
   const [parcelaParaQuitar, setParcelaParaQuitar] = useState(null);
   const totalReceive = receivables.reduce(
     (sum, item) => sum + Number(item.valor || 0),
@@ -86,7 +94,7 @@ export function FinanceManager({
   }
   async function excluirSaida(id) {
     if (
-      !confirm(
+      !await confirmAction(
         "Excluir esta saída e todas as parcelas relacionadas, inclusive as já pagas?",
       )
     )
@@ -96,6 +104,23 @@ export function FinanceManager({
     });
     if (error) return setMessage(error.message);
     router.refresh();
+  }
+  async function desfazerBaixa(parcela) {
+    if (desfazendoBaixa) return;
+    setFeedbackBaixa(null);
+    const confirmado = await confirmAction(
+      "Desfazer a baixa de " + money.format(Number(parcela.valor)) + " de " + parcela.nome + "? Este valor voltará a ficar pendente, mantendo o vencimento e os valores atuais das demais parcelas.",
+      { title: "Desfazer baixa", confirmLabel: "Sim, desfazer baixa" },
+    );
+    if (!confirmado) return;
+    setDesfazendoBaixa(parcela.tipo + ":" + parcela.id);
+    setMessage("");
+    try {
+      await reabrirParcela(createClient(), parcela);
+      setFeedbackBaixa({ erro: false, texto: "Baixa desfeita. A parcela de " + money.format(Number(parcela.valor)) + " de " + parcela.nome + " voltou para " + (parcela.tipo === "receive" ? "A receber" : "A pagar") + "." });
+      router.refresh();
+    } catch (error) { setFeedbackBaixa({ erro: true, texto: error.message || "Não foi possível desfazer a baixa. Verifique sua conexão e tente novamente." }); }
+    finally { setDesfazendoBaixa(""); }
   }
   function abrirQuitacao(parcela) {
     setMessage("");
@@ -173,6 +198,7 @@ export function FinanceManager({
           onPay={abrirQuitacao}
         />
       </section>
+      <PaymentHistory items={historicoBaixas} erro={erroHistorico} onUndo={desfazerBaixa} busy={desfazendoBaixa} feedback={feedbackBaixa} />
       <section className="mt-7 overflow-x-auto rounded-2xl border border-[#ebe8e5] bg-white">
         <div className="border-b border-[#f0edeb] p-5">
           <h2 className="font-semibold text-[#292524]">Saídas registradas</h2>

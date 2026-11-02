@@ -1,29 +1,50 @@
 "use client";
+import { useConfirmation } from "@/components/ui/confirmation-provider";
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Icon } from "@/components/ui/icon";
+import { useViewportPagination } from "@/hooks/use-viewport-pagination";
+import { ListPagination } from "@/components/ui/list-pagination";
+import { saldoPendente } from "@/lib/list-pagination";
+import { validarEstoqueVenda, mensagemErroVenda } from "@/lib/sale-validation";
+import { SaleDetailsDialog } from "@/components/sales/sale-details-dialog";
+import { dataVendaHoje, vencimentoMesSeguinte } from "@/lib/sale-dates";
 import { CampoSelecao } from "@/components/ui/campo-selecao";
 
 const money = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
 });
-const today = new Date().toISOString().slice(0, 10);
-const inThirtyDays = new Date(Date.now() + 30 * 86400000)
-  .toISOString()
-  .slice(0, 10);
 
-export function GerenciadorVendas({ customers, products, sales }) {
+export function GerenciadorVendas({ customers, products, sales, erroCarregamento = "" }) {
   const router = useRouter();
+  const confirmAction = useConfirmation();
   const [open, setOpen] = useState(false);
+  const [dataVenda, setDataVenda] = useState(dataVendaHoje);
+  const [primeiroVencimento, setPrimeiroVencimento] = useState(() => vencimentoMesSeguinte(dataVenda));
+  const [vendaDetalhada, setVendaDetalhada] = useState(null);
   const [items, setItems] = useState([
     { produto_id: "", quantidade: 1, preco_unitario: "" },
   ]);
   const [saving, setSaving] = useState(false);
   const [clienteSelecionado, setClienteSelecionado] = useState("");
   const [message, setMessage] = useState("");
+  const [clienteFiltro, setClienteFiltro] = useState("");
+  const clientesFiltro = useMemo(() => {
+    const mapa = new Map(customers.map((cliente) => [cliente.id, cliente]));
+    for (const venda of sales) {
+      if (venda.clientes && venda.cliente_id && !mapa.has(venda.cliente_id)) mapa.set(venda.cliente_id, { ...venda.clientes, id: venda.cliente_id });
+    }
+    return [...mapa.values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  }, [customers, sales]);
+  const [situacao, setSituacao] = useState("todas");
+  const vendasFiltradas = useMemo(() => sales.map((sale) => ({ ...sale, saldoPendente: saldoPendente(sale.parcelas) })).filter((sale) => {
+    return (!clienteFiltro || sale.cliente_id === clienteFiltro)
+      && (situacao === "todas" || (situacao === "pendentes" ? sale.saldoPendente > 0 : sale.saldoPendente === 0));
+  }), [sales, situacao, clienteFiltro]);
+  const pagination = useViewportPagination(vendasFiltradas, situacao + "|" + clienteFiltro, 89);
   const total = useMemo(
     () =>
       items.reduce(
@@ -77,9 +98,14 @@ export function GerenciadorVendas({ customers, products, sales }) {
         quantidade: Number(item.quantidade),
         preco_unitario: converterMoedaParaNumero(item.preco_unitario),
       }));
-    if (!clienteSelecionado || validItems.some((item) => !item.produto_id)) {
+    if (!clienteSelecionado || !validItems.length || validItems.length !== items.length) {
       setSaving(false);
       return setMessage("Selecione uma cliente e produtos válidos na lista.");
+    }
+    const erroEstoque = validarEstoqueVenda(validItems, products);
+    if (erroEstoque) {
+      setSaving(false);
+      return setMessage(erroEstoque);
     }
     const { error } = await createClient().rpc("registrar_venda", {
       p_cliente_id: clienteSelecionado,
@@ -91,14 +117,14 @@ export function GerenciadorVendas({ customers, products, sales }) {
     });
     setSaving(false);
     if (error)
-      return setMessage(error.message || "Não foi possível registrar a venda.");
+      return setMessage(mensagemErroVenda(error));
     setOpen(false);
     setItems([{ produto_id: "", quantidade: 1, preco_unitario: "" }]);
     router.refresh();
   }
   async function excluirVenda(id) {
     if (
-      !confirm(
+      !await confirmAction(
         "Excluir esta venda? As peças voltarão automaticamente aos lotes de origem.",
       )
     )
@@ -125,6 +151,9 @@ export function GerenciadorVendas({ customers, products, sales }) {
         <button
           disabled={!customers.length || !products.length}
           onClick={() => {
+            const hoje = dataVendaHoje();
+            setDataVenda(hoje);
+            setPrimeiroVencimento(vencimentoMesSeguinte(hoje));
             setOpen(true);
             setMessage("");
           }}
@@ -140,28 +169,36 @@ export function GerenciadorVendas({ customers, products, sales }) {
           cadastrada e um produto com saldo em estoque.
         </div>
       ) : null}
+      {erroCarregamento && <p role="alert" className="mb-4 rounded-xl bg-[#fff5ed] p-3 text-sm text-[#9a5b3e]">{erroCarregamento}</p>}
+      {!open && message && <p role="alert" className="mb-4 rounded-xl bg-[#fff5ed] p-3 text-sm text-[#9a5b3e]">{message}</p>}
       <section className="rounded-2xl border border-[#ebe8e5] bg-white shadow-[0_2px_12px_rgba(41,37,36,0.03)]">
-        <div className="border-b border-[#f0edeb] p-5 sm:p-6">
-          <h2 className="text-lg font-semibold text-[#292524]">
-            Vendas recentes
-          </h2>
-          <p className="mt-1 text-sm text-[#78716c]">
-            Histórico das últimas vendas registradas.
-          </p>
+        <div className="flex flex-col gap-4 border-b border-[#f0edeb] p-5 sm:p-6">
+          <div><h2 className="text-lg font-semibold text-[#292524]">Vendas</h2><p className="mt-1 text-sm text-[#78716c]">Histórico completo das vendas registradas.</p></div>
+          <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+            <label><span className="sr-only">Situação da venda</span>
+              <select value={situacao} onChange={(event) => setSituacao(event.target.value)} className="w-full rounded-xl border border-[#e4dfdb] bg-[#faf9f8] px-3 py-2.5 text-sm outline-none focus:border-[#9b6d64]">
+                <option value="todas">Todas as vendas</option><option value="pendentes">Com débito ativo</option><option value="quitadas">Quitadas</option>
+              </select>
+            </label>
+            <label className="block min-w-0"><span className="sr-only">Filtrar vendas por cliente</span>
+              <CampoSelecao opcoes={clientesFiltro.map((cliente) => ({ valor: cliente.id, rotulo: cliente.nome, detalhe: cliente.observacao || "" }))} valor={clienteFiltro} aoSelecionar={setClienteFiltro} placeholder="Todas as clientes" />
+            </label>
+          </div>
         </div>
-        {sales.length ? (
-          <div className="divide-y divide-[#f0edeb]">
-            {sales.map((sale) => (
+        {vendasFiltradas.length ? (
+          <div ref={pagination.rowsRef} className="divide-y divide-[#f0edeb]">
+            {pagination.itens.map((sale) => (
               <div
+                data-page-row
                 key={sale.id}
-                className="flex items-center justify-between gap-4 px-5 py-4 sm:px-6"
+                className="flex min-h-[89px] items-center justify-between gap-3 px-5 py-3 sm:px-6"
               >
-                <div className="flex items-center gap-3">
-                  <span className="grid size-10 place-items-center rounded-xl bg-[#f8ece9] text-[#9b6d64]">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#f8ece9] text-[#9b6d64]">
                     <Icon name="shoppingBag" size={18} />
                   </span>
-                  <div>
-                    <p className="text-sm font-semibold text-[#44403c]">
+                  <div className="min-w-0">
+                    <p title={sale.clientes?.nome || "Cliente"} className="truncate text-sm font-semibold text-[#44403c]">
                       {sale.clientes?.nome || "Cliente"}
                     </p>
                     <p className="text-xs text-[#918b87]">
@@ -169,18 +206,26 @@ export function GerenciadorVendas({ customers, products, sales }) {
                         `${sale.data_venda}T12:00:00`,
                       ).toLocaleDateString("pt-BR")}
                     </p>
+                    <span title={sale.saldoPendente > 0 ? "Saldo a receber: " + money.format(sale.saldoPendente) : "Sem parcelas em aberto"} className={"mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold " + (sale.saldoPendente > 0 ? "bg-[#fff3df] text-[#ae751a]" : "bg-[#eaf5ee] text-[#4f8c6d]")}>
+                      {sale.saldoPendente > 0 ? "Débito ativo" : "Quitada"}
+                    </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
                   <strong className="text-sm text-[#44403c]">
                     {money.format(Number(sale.valor_total))}
                   </strong>
+                  <div className="flex items-center gap-3">
+                  <button type="button" onClick={() => setVendaDetalhada(sale)} aria-label="Ver itens da venda" title="Ver itens da venda" className="rounded-lg p-2 text-[#9b6d64] hover:bg-[#faf6f4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9b6d64]">
+                    <Icon name="eye" size={20} />
+                  </button>
                   <button
                     onClick={() => excluirVenda(sale.id)}
                     className="text-xs font-semibold text-[#9b6d64]"
                   >
                     Excluir
                   </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -191,14 +236,16 @@ export function GerenciadorVendas({ customers, products, sales }) {
               <Icon name="shoppingBag" size={22} />
             </span>
             <h3 className="mt-4 font-semibold text-[#44403c]">
-              Ainda não há vendas
+              {sales.length ? "Nenhuma venda encontrada" : "Ainda não há vendas"}
             </h3>
             <p className="mt-1 text-sm text-[#78716c]">
-              As vendas registradas aparecerão aqui.
+              {sales.length ? "Altere os filtros para consultar outras vendas." : "As vendas registradas aparecerão aqui."}
             </p>
           </div>
         )}
+        <ListPagination pagination={pagination} total={vendasFiltradas.length} label="vendas" />
       </section>
+      {vendaDetalhada && <SaleDetailsDialog venda={vendaDetalhada} onClose={() => setVendaDetalhada(null)} />}
       {open && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-[#292524]/35 p-4">
           <div className="mx-auto my-5 w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
@@ -238,6 +285,7 @@ export function GerenciadorVendas({ customers, products, sales }) {
                   opcoes={customers.map((customer) => ({
                     valor: customer.id,
                     rotulo: customer.nome,
+                    detalhe: customer.observacao || "",
                   }))}
                   valor={clienteSelecionado}
                   aoSelecionar={setClienteSelecionado}
@@ -352,7 +400,12 @@ export function GerenciadorVendas({ customers, products, sales }) {
                   name="data_venda"
                   label="Data da venda"
                   type="date"
-                  defaultValue={today}
+                  value={dataVenda}
+                  onChange={(event) => {
+                    const data = event.target.value;
+                    setDataVenda(data);
+                    setPrimeiroVencimento(vencimentoMesSeguinte(data));
+                  }}
                   required
                 />
                 <Field
@@ -367,7 +420,8 @@ export function GerenciadorVendas({ customers, products, sales }) {
                   name="primeiro_vencimento"
                   label="Primeiro vencimento"
                   type="date"
-                  defaultValue={inThirtyDays}
+                  value={primeiroVencimento}
+                  onChange={(event) => setPrimeiroVencimento(event.target.value)}
                   required
                 />
               </div>

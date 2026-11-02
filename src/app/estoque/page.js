@@ -1,52 +1,24 @@
 import { StockManager } from "@/components/stock/stock-manager";
 import { createClient } from "@/lib/supabase/server";
-
-const ITENS_POR_PAGINA = 50;
+import { listarProdutosAtivos } from "@/lib/stock-products";
+import { listarTodos } from "@/lib/listar-todos";
 
 export default async function StockPage({ searchParams }) {
   const parametros = await searchParams;
-  const busca = (parametros?.busca || "").trim();
-  const paginaSolicitada = Number(parametros?.pagina || 1);
-  const pagina =
-    Number.isInteger(paginaSolicitada) && paginaSolicitada > 0
-      ? paginaSolicitada
-      : 1;
-  const inicio = (pagina - 1) * ITENS_POR_PAGINA;
   const supabase = await createClient();
-  let consultaProdutos = supabase
-    .from("produtos")
-    .select(
-      "id, referencia, descricao, categoria_id, imagem_url, quantidade_estoque, estoque_minimo, ativo, categorias(nome)",
-      { count: "exact" },
-    )
-    .order("referencia");
-
-  if (busca) {
-    const termoBusca = busca.replace(/[(),]/g, " ");
-    consultaProdutos = consultaProdutos.or(
-      `referencia.ilike.%${termoBusca}%,descricao.ilike.%${termoBusca}%`,
-    );
-  }
-
-  const [{ data: products, count }, { data: categories }, { data: resumoEstoque }] = await Promise.all([
-    consultaProdutos.range(inicio, inicio + ITENS_POR_PAGINA - 1),
-    supabase
-      .from("categorias")
-      .select("id, nome")
-      .eq("ativo", true)
-      .order("nome"),
+  const [produtos, categorias, resumo, produtosEntrada, clientes] = await Promise.all([
+    listarTodos(() => supabase.from("produtos").select("id, referencia, descricao, categoria_id, imagem_url, quantidade_estoque, estoque_minimo, ativo, categorias(nome)").order("referencia").order("id")),
+    supabase.from("categorias").select("id, nome").eq("ativo", true).order("nome"),
     supabase.rpc("obter_resumo_estoque"),
+    listarProdutosAtivos(supabase),
+    listarTodos(() => supabase.from("clientes").select("id,nome,telefone,observacao").eq("ativo", true).order("nome").order("id")),
   ]);
-
-  return (
-    <StockManager
-      products={products || []}
-      categories={categories || []}
-      paginaAtual={pagina}
-      totalProdutos={count || 0}
-      itensPorPagina={ITENS_POR_PAGINA}
-      resumoEstoque={resumoEstoque?.[0] || null}
-      buscaInicial={busca}
-    />
-  );
+  return <StockManager products={produtos.data} categories={categorias.data || []}
+    produtosEntrada={produtosEntrada.data}
+    clientesCatalogo={clientes.data}
+    erroClientesCatalogo={clientes.error ? "Não foi possível carregar as clientes. Atualize a página para tentar novamente." : ""}
+    erroCarregamento={produtos.error ? "Não foi possível carregar os produtos. Atualize a página para tentar novamente." : ""}
+    erroProdutosEntrada={produtosEntrada.error ? "Não foi possível carregar os produtos ativos para registrar entradas. Atualize a página para tentar novamente." : ""}
+    totalProdutos={produtos.data.length} resumoEstoque={resumo.data?.[0] || null}
+    buscaInicial={typeof parametros?.busca === "string" ? parametros.busca : ""} />;
 }

@@ -1,25 +1,37 @@
 "use client";
+import { useConfirmation } from "@/components/ui/confirmation-provider";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { useViewportPagination } from "@/hooks/use-viewport-pagination";
+import { ListPagination } from "@/components/ui/list-pagination";
+import { normalizarBusca } from "@/lib/list-pagination";
+import { CatalogShareDialog } from "@/components/stock/catalog-share-dialog";
+import { CampoSelecao } from "@/components/ui/campo-selecao";
 import { Icon } from "@/components/ui/icon";
 
 export function StockManager({
   products,
   categories,
-  paginaAtual = 1,
+  clientesCatalogo = [],
+  erroClientesCatalogo = "",
+  produtosEntrada = [],
+  erroProdutosEntrada = "",
   totalProdutos = 0,
-  itensPorPagina = 50,
+  erroCarregamento = "",
   resumoEstoque = null,
   buscaInicial = "",
 }) {
   const router = useRouter();
+  const confirmAction = useConfirmation();
   const [search, setSearch] = useState(buscaInicial);
+  const [catalogoAberto, setCatalogoAberto] = useState(false);
   const [showProductForm, setShowProductForm] = useState(false);
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [showEntryForm, setShowEntryForm] = useState(false);
+  const [produtoEntrada, setProdutoEntrada] = useState("");
   const [produtoEmEdicao, setProdutoEmEdicao] = useState({ id: null });
   const [imagemAmpliada, setImagemAmpliada] = useState({
     url: "",
@@ -30,40 +42,18 @@ export function StockManager({
   const visibleProducts = useMemo(
     () =>
       products.filter((product) =>
-        `${product.referencia} ${product.descricao || ""}`
-          .toLowerCase()
-          .includes(search.toLowerCase()),
+        normalizarBusca(`${product.referencia} ${product.descricao || ""}`).includes(normalizarBusca(search.trim())),
       ),
     [products, search],
   );
+  const pagination = useViewportPagination(visibleProducts, search, 77);
   const lowStock = products.filter(
     (product) => product.quantidade_estoque <= product.estoque_minimo,
   ).length;
-  const totalPaginas = Math.max(1, Math.ceil(totalProdutos / itensPorPagina));
 
   useEffect(() => {
     setSearch(buscaInicial);
   }, [buscaInicial]);
-
-  useEffect(() => {
-    const busca = search.trim();
-
-    if (busca === buscaInicial) return;
-
-    const temporizador = setTimeout(() => {
-      const parametros = new URLSearchParams();
-      if (busca) parametros.set("busca", busca);
-      router.replace(`/estoque${parametros.size ? `?${parametros}` : ""}`);
-    }, 300);
-
-    return () => clearTimeout(temporizador);
-  }, [buscaInicial, router, search]);
-
-  function irParaPagina(novaPagina) {
-    const parametros = new URLSearchParams({ pagina: String(novaPagina) });
-    if (buscaInicial) parametros.set("busca", buscaInicial);
-    router.push(`/estoque?${parametros}`);
-  }
 
   async function salvarProduto(form) {
     setSaving(true);
@@ -122,7 +112,7 @@ export function StockManager({
 
   async function excluirProduto(id) {
     if (
-      !confirm(
+      !await confirmAction(
         "Excluir este produto? Produtos com entradas ou vendas não podem ser removidos para preservar o histórico.",
       )
     )
@@ -160,7 +150,7 @@ export function StockManager({
     setSaving(true);
     setMessage("");
     const values = Object.fromEntries(new FormData(form));
-    const produto = products.find((item) => item.referencia === values.produto_busca);
+    const produto = produtosEntrada.find((item) => item.id === values.produto_id);
     if (!produto) { setSaving(false); return setMessage("Selecione um produto válido nas sugestões."); }
     const { error } = await createClient().rpc("registrar_entrada_estoque", {
       p_produto_id: produto.id,
@@ -192,6 +182,7 @@ export function StockManager({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setCatalogoAberto(true)} className="rounded-xl border border-[#9b6d64] bg-white px-4 py-3 text-sm font-semibold text-[#9b6d64] hover:bg-[#faf6f4]">Catálogo</button>
           <Link
             href="/estoque/categorias"
             className="rounded-xl border border-[#ded8d4] bg-white px-4 py-3 text-sm font-semibold text-[#6b625e] hover:bg-[#faf9f8]"
@@ -217,10 +208,11 @@ export function StockManager({
           </button>
           <button
             onClick={() => {
+              setProdutoEntrada("");
               setShowEntryForm(true);
               setMessage("");
             }}
-            disabled={!products.length}
+            disabled={!produtosEntrada.length}
             className="inline-flex items-center gap-2 rounded-xl bg-[#9b6d64] px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#855b53] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon name="box" size={18} />
@@ -228,6 +220,10 @@ export function StockManager({
           </button>
         </div>
       </header>
+      {erroCarregamento && <p role="alert" className="mb-4 rounded-xl bg-[#fff5ed] p-3 text-sm text-[#9a5b3e]">{erroCarregamento}</p>}
+      {erroProdutosEntrada && (
+        <p role="alert" className="mb-4 rounded-xl bg-[#fff5ed] p-3 text-sm text-[#9a5b3e]">{erroProdutosEntrada}</p>
+      )}
       <section className="mb-6 grid gap-4 sm:grid-cols-3">
         <Summary
           label="Produtos cadastrados"
@@ -267,34 +263,34 @@ export function StockManager({
           </label>
         </div>
         {visibleProducts.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-left">
-              <colgroup>
-                <col className="w-[46%]" />
+          <div className="min-w-0">
+            <table className="block w-full table-fixed text-left md:table">
+              <colgroup className="hidden md:table-column-group">
+                <col className="w-[32%]" />
+                <col className="w-[15%]" />
+                <col className="w-[11%]" />
+                <col className="w-[9%]" />
+                <col className="w-[17%]" />
                 <col className="w-[16%]" />
-                <col className="w-[10%]" />
-                <col className="w-[8%]" />
-                <col className="w-[14%]" />
-                <col className="w-[6%]" />
               </colgroup>
-              <thead className="bg-[#fcfbfa] text-xs font-semibold uppercase tracking-wide text-[#9a9591]">
+              <thead className="hidden bg-[#fcfbfa] text-xs md:table-header-group font-semibold uppercase tracking-wide text-[#9a9591]">
                 <tr>
-                  <th className="px-6 py-3">Produto</th>
-                  <th className="px-6 py-3">Categoria</th>
-                  <th className="px-6 py-3 text-center">Em estoque</th>
-                  <th className="px-6 py-3 text-center">Mínimo</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3"></th>
+                  <th className="px-3 py-3">Produto</th>
+                  <th className="px-3 py-3">Categoria</th>
+                  <th className="px-3 py-3 text-center">Em estoque</th>
+                  <th className="px-3 py-3 text-center">Mínimo</th>
+                  <th className="px-3 py-3">Status</th>
+                  <th className="px-3 py-3"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#f0edeb]">
-                {visibleProducts.map((product) => {
+              <tbody ref={pagination.rowsRef} className="block divide-y md:table-row-group divide-[#f0edeb]">
+                {pagination.itens.map((product) => {
                   const low =
                     product.quantidade_estoque <= product.estoque_minimo;
                   return (
-                    <tr key={product.id} className="text-sm text-[#57534e]">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
+                    <tr data-page-row key={product.id} className="grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-4 text-sm text-[#57534e] md:table-row md:p-0">
+                      <td className="col-span-2 min-w-0 md:table-cell md:px-3 md:py-4">
+                        <div className="flex min-w-0 items-center gap-3">
                           <button
                             type="button"
                             onClick={() =>
@@ -317,35 +313,37 @@ export function StockManager({
                               product.referencia.slice(0, 1)
                             )}
                           </button>
-                          <div>
-                            <p className="font-semibold text-[#3f3a37]">
+                          <div className="min-w-0">
+                            <p title={product.referencia} className="truncate font-semibold text-[#3f3a37]">
                               {product.referencia}
                             </p>
-                            <p className="mt-0.5 text-xs text-[#9a9591]">
+                            <p title={product.descricao || "Sem descrição"} className="mt-0.5 truncate text-xs text-[#9a9591]">
                               {product.descricao || "Sem descrição"}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        {product.categorias?.nome || "Sem categoria"}
+                      <td title={product.categorias?.nome || "Sem categoria"} className="col-span-2 min-w-0 truncate text-xs md:table-cell md:px-3 md:py-4 md:text-sm">
+                        <span className="mr-1 text-[#918b87] md:hidden">Categoria:</span>{product.categorias?.nome || "Sem categoria"}
                       </td>
-                      <td className="px-6 py-4 text-center font-semibold">
-                        {product.quantidade_estoque}
+                      <td className="min-w-0 font-semibold md:table-cell md:px-3 md:py-4 md:text-center">
+                        <span className="mr-1 font-normal text-[#918b87] md:hidden">Em estoque:</span>{product.quantidade_estoque}
                       </td>
-                      <td className="px-6 py-4 text-center">
-                        {product.estoque_minimo}
+                      <td className="min-w-0 md:table-cell md:px-3 md:py-4 md:text-center">
+                        <span className="mr-1 text-[#918b87] md:hidden">Mínimo:</span>{product.estoque_minimo}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="min-w-0 self-center md:table-cell md:px-3 md:py-4">
                         <span
-                          className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${low ? "bg-[#fff3df] text-[#ae751a]" : "bg-[#eaf5ee] text-[#4f8c6d]"}`}
+                          className={`inline-block max-w-full rounded-full px-2 py-1 text-center text-[11px] leading-4 font-semibold ${low ? "bg-[#fff3df] text-[#ae751a]" : "bg-[#eaf5ee] text-[#4f8c6d]"}`}
                         >
                           {low ? "Estoque baixo" : "Em dia"}
                         </span>
                       </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-right">
-                        <button onClick={() => { setProdutoEmEdicao(product); setShowProductForm(true); setMessage(""); }} className="mr-3 text-xs font-semibold text-[#9b6d64]">Editar</button>
+                      <td className="min-w-0 self-center md:table-cell md:px-3 md:py-4">
+                        <div className="flex flex-wrap justify-end gap-x-3 gap-y-2 md:flex-col md:items-end xl:flex-row">
+                        <button onClick={() => { setProdutoEmEdicao(product); setShowProductForm(true); setMessage(""); }} className="text-xs font-semibold text-[#9b6d64]">Editar</button>
                         <button onClick={() => excluirProduto(product.id)} className="text-xs font-semibold text-[#9b6d64]">Excluir</button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -359,30 +357,9 @@ export function StockManager({
             onCreate={() => setShowProductForm(true)}
           />
         )}
+        <ListPagination pagination={pagination} total={visibleProducts.length} label="produtos" />
       </section>
-      {totalProdutos > itensPorPagina && (
-        <div className="mt-5 flex items-center justify-between rounded-xl border border-[#ebe8e5] bg-white px-4 py-3 text-sm">
-          <span className="text-[#78716c]">
-            Página {paginaAtual} de {totalPaginas} · {totalProdutos} produtos
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => irParaPagina(paginaAtual - 1)}
-              disabled={paginaAtual <= 1}
-              className="rounded-lg border border-[#ded8d4] px-3 py-1.5 font-semibold text-[#675e59] disabled:opacity-40"
-            >
-              Anterior
-            </button>
-            <button
-              onClick={() => irParaPagina(paginaAtual + 1)}
-              disabled={paginaAtual >= totalPaginas}
-              className="rounded-lg border border-[#ded8d4] px-3 py-1.5 font-semibold text-[#675e59] disabled:opacity-40"
-            >
-              Próxima
-            </button>
-          </div>
-        </div>
-      )}
+      {catalogoAberto && <CatalogShareDialog clientes={clientesCatalogo} erroClientes={erroClientesCatalogo} onClose={() => setCatalogoAberto(false)} />}
       {(showProductForm || showCategoryForm || showEntryForm) && (
         <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[#292524]/35 p-4">
           <div className="my-5 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
@@ -432,14 +409,17 @@ export function StockManager({
                   <span className="mb-1.5 block text-sm font-medium text-[#57534e]">
                     Produto
                   </span>
-                  <input
-                    name="produto_busca"
-                    required
-                    list="produtos-entrada-sugestoes"
-                    placeholder="Digite a referência"
-                    className="w-full rounded-xl border border-[#ded8d4] px-3 py-2.5 text-sm outline-none focus:border-[#9b6d64]"
+                  <CampoSelecao
+                    name="produto_id"
+                    opcoes={produtosEntrada.map((product) => ({
+                      valor: product.id,
+                      rotulo: product.referencia,
+                      detalhe: product.descricao || "Sem descrição",
+                    }))}
+                    valor={produtoEntrada}
+                    aoSelecionar={setProdutoEntrada}
+                    placeholder="Buscar produto"
                   />
-                  <datalist id="produtos-entrada-sugestoes">{products.map((product) => <option key={product.id} value={product.referencia} label={product.descricao || ""} />)}</datalist>
                 </label>
                 <div className="grid grid-cols-2 gap-4">
                   <Field
@@ -527,18 +507,16 @@ export function StockManager({
                   <span className="mb-1.5 block text-sm font-medium text-[#57534e]">
                     Categoria
                   </span>
-                  <select
+                  <CampoSelecao
                     name="categoria_id"
-                    defaultValue={produtoEmEdicao.categoria_id || ""}
-                    className="w-full rounded-xl border border-[#ded8d4] px-3 py-2.5 text-sm outline-none focus:border-[#9b6d64]"
-                  >
-                    <option value="">Sem categoria</option>
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.nome}
-                      </option>
-                    ))}
-                  </select>
+                    opcoes={[
+                      { valor: "", rotulo: "Sem categoria" },
+                      ...categories.map((category) => ({ valor: category.id, rotulo: category.nome })),
+                    ]}
+                    valor={produtoEmEdicao.categoria_id || ""}
+                    aoSelecionar={(categoria_id) => setProdutoEmEdicao((produto) => ({ ...produto, categoria_id }))}
+                    placeholder="Buscar categoria"
+                  />
                 </label>
                 <Field
                   name="estoque_minimo"

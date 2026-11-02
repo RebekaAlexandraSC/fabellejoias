@@ -1,13 +1,14 @@
 import { GerenciadorVendas } from "@/components/sales/sales-manager";
 import { createClient } from "@/lib/supabase/server";
 
+import { listarTodos } from "@/lib/listar-todos";
 export default async function PaginaVendas() {
   const supabase = await createClient();
-  const [{ data: customers }, { data: products }, { data: sales }] =
+  const [{ data: customers }, { data: products }, { data: sales, error: salesError }] =
     await Promise.all([
       supabase
         .from("clientes")
-        .select("id, nome")
+        .select("id, nome, observacao")
         .eq("ativo", true)
         .order("nome"),
       supabase
@@ -18,11 +19,11 @@ export default async function PaginaVendas() {
         .eq("ativo", true)
         .gt("quantidade_estoque", 0)
         .order("referencia"),
-      supabase
+      listarTodos(() => supabase
         .from("vendas")
-        .select("id, valor_total, data_venda, clientes(nome)")
+        .select("id, cliente_id, valor_total, data_venda, clientes(id, nome, observacao), parcelas(valor, data_pagamento)")
         .order("data_venda", { ascending: false })
-        .limit(10),
+        .order("id")),
     ]);
   const produtosComPrecoSugerido = (products || []).map(
     ({ entradas_estoque: entradas, ...produto }) => {
@@ -45,6 +46,7 @@ export default async function PaginaVendas() {
       customers={customers || []}
       products={produtosComPrecoSugerido}
       sales={sales || []}
+      erroCarregamento={salesError ? "Não foi possível carregar o histórico de vendas. Atualize a página para tentar novamente." : ""}
     />
   );
 }

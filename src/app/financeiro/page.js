@@ -1,6 +1,7 @@
 import { FinanceManager } from "@/components/finance/finance-manager";
 import { createClient } from "@/lib/supabase/server";
 
+import { listarTodos } from "@/lib/listar-todos";
 export default async function FinancePage() {
   const supabase = await createClient();
   const hoje = new Date();
@@ -16,19 +17,19 @@ export default async function FinancePage() {
     { data: saidas },
     { data: received },
     { data: paid },
+    historicoRecebidas,
+    historicoPagas,
   ] = await Promise.all([
-    supabase
+    listarTodos(() => supabase
       .from("parcelas")
       .select("id, valor, data_vencimento, vendas(clientes(nome, telefone))")
       .is("data_pagamento", null)
-      .order("data_vencimento")
-      .limit(20),
-    supabase
+      .order("data_vencimento").order("id")),
+    listarTodos(() => supabase
       .from("parcelas_saidas")
       .select("id, valor, data_vencimento, saidas(descricao)")
       .is("data_pagamento", null)
-      .order("data_vencimento")
-      .limit(20),
+      .order("data_vencimento").order("id")),
     supabase
       .from("saidas")
       .select(
@@ -46,6 +47,12 @@ export default async function FinancePage() {
       .select("id, valor")
       .gte("data_pagamento", primeiroDiaMes)
       .lte("data_pagamento", ultimoDiaMes),
+    listarTodos(() => supabase.from("parcelas")
+      .select("id, numero, valor, data_vencimento, data_pagamento, vendas(clientes(nome))")
+      .not("data_pagamento", "is", null).order("data_pagamento", { ascending: false }).order("id")),
+    listarTodos(() => supabase.from("parcelas_saidas")
+      .select("id, numero, valor, data_vencimento, data_pagamento, saidas(descricao)")
+      .not("data_pagamento", "is", null).order("data_pagamento", { ascending: false }).order("id")),
   ]);
   return (
     <FinanceManager
@@ -54,6 +61,11 @@ export default async function FinancePage() {
       saidas={saidas || []}
       contasRecebidas={received || []}
       contasPagas={paid || []}
+      historicoBaixas={[
+        ...historicoRecebidas.data.map((item) => ({ ...item, tipo: "receive", nome: item.vendas?.clientes?.nome || "Cliente" })),
+        ...historicoPagas.data.map((item) => ({ ...item, tipo: "pay", nome: item.saidas?.descricao || "Saída" })),
+      ].sort((a, b) => b.data_pagamento.localeCompare(a.data_pagamento) || a.id.localeCompare(b.id))}
+      erroHistorico={historicoRecebidas.error || historicoPagas.error ? "Não foi possível carregar todo o histórico de baixas. Atualize a página para tentar novamente." : ""}
     />
   );
 }

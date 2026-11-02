@@ -1,5 +1,6 @@
 import { Geist } from "next/font/google";
 import "./globals.css";
+import { ConfirmationProvider } from "@/components/ui/confirmation-provider";
 import { AppShell } from "@/components/layout/app-shell";
 
 const geistSans = Geist({
@@ -17,7 +18,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR" className={`${geistSans.variable} h-full antialiased`}>
       <body className="min-h-full">
-        <AppShell>{children}</AppShell>
+        <ConfirmationProvider><AppShell>{children}</AppShell></ConfirmationProvider>
       </body>
     </html>
   );

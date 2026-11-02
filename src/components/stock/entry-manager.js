@@ -1,14 +1,25 @@
 "use client";
+import { useConfirmation } from "@/components/ui/confirmation-provider";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useViewportPagination } from "@/hooks/use-viewport-pagination";
+import { ListPagination } from "@/components/ui/list-pagination";
 import Link from "next/link";
 export function EntryManager({ entries = [], erroCarregamento = "" }) {
   const router = useRouter();
+  const confirmAction = useConfirmation();
   const [editing, setEditing] = useState({ id: null });
   const [message, setMessage] = useState("");
+  const [search, setSearch] = useState("");
+  const normalize = (value) => (value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+  const query = normalize(search.trim());
+  const filteredEntries = entries.filter(Boolean).filter((entry) =>
+    normalize([entry.produto?.referencia, entry.produto?.descricao, entry.observacao].filter(Boolean).join(" ")).includes(query),
+  );
+  const pagination = useViewportPagination(filteredEntries, search, 57);
   async function remove(id) {
-    if (!confirm("Excluir esta entrada? O saldo do produto será reduzido."))
+    if (!await confirmAction("Excluir esta entrada? O saldo do produto será reduzido."))
       return;
     const { error } = await createClient().rpc("excluir_entrada_estoque", {
       p_entrada_id: id,
@@ -52,7 +63,20 @@ export function EntryManager({ entries = [], erroCarregamento = "" }) {
           Não foi possível carregar as entradas: {erroCarregamento}
         </p>
       )}
-      <section className="overflow-x-auto rounded-2xl border border-[#ebe8e5] bg-white">
+      <section className="rounded-2xl border border-[#ebe8e5] bg-white">
+        <div className="flex flex-col gap-4 border-b border-[#f0edeb] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+          <div>
+            <h2 className="text-lg font-semibold text-[#292524]">Entradas por lote</h2>
+            <p className="mt-1 text-sm text-[#78716c]">Consulte os lotes recebidos pela sua loja.</p>
+          </div>
+          <label className="relative block sm:w-64 sm:shrink-0">
+            <span className="sr-only">Buscar entrada por referência, descrição ou observação</span>
+            <input type="search" value={search} onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar entrada"
+              className="w-full rounded-xl border border-[#e4dfdb] bg-[#faf9f8] px-4 py-2.5 text-sm outline-none placeholder:text-[#aaa39e] focus:border-[#9b6d64]" />
+          </label>
+        </div>
+        <div className="overflow-x-auto">
         <table className="w-full min-w-[730px] text-sm">
           <thead className="bg-[#fcfbfa] text-left text-xs uppercase text-[#918b87]">
             <tr>
@@ -65,11 +89,11 @@ export function EntryManager({ entries = [], erroCarregamento = "" }) {
               <th className="p-4"></th>
             </tr>
           </thead>
-          <tbody>
-            {entries.filter(Boolean).map((e) => {
+          <tbody ref={pagination.rowsRef}>
+            {pagination.itens.map((e) => {
               const used = e.quantidade !== e.quantidade_disponivel;
               return (
-                <tr key={e.id} className="border-t border-[#f0edeb]">
+                <tr data-page-row key={e.id} className="border-t border-[#f0edeb]">
                   <td className="p-4 font-semibold text-[#44403c]">
                     {e.produto?.referencia || "Produto não localizado"}
                   </td>
@@ -99,8 +123,15 @@ export function EntryManager({ entries = [], erroCarregamento = "" }) {
                 </tr>
               );
             })}
+            {!filteredEntries.length && (
+              <tr><td colSpan={7} className="p-8 text-center text-sm text-[#918b87]" role="status">
+                {query ? "Nenhuma entrada encontrada para este filtro." : "Nenhuma entrada cadastrada."}
+              </td></tr>
+            )}
           </tbody>
         </table>
+        </div>
+        <ListPagination pagination={pagination} total={filteredEntries.length} label="entradas" />
       </section>
       {editing.id && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-[#292524]/35 p-4">

@@ -5,7 +5,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 
 export function AppShell({ children }) {
   const pathname = usePathname();
-  if (pathname.startsWith("/login")) return children;
+  if (pathname.startsWith("/login") || /^\/catalogo\//.test(pathname)) return children;
 
   return (
     <div className="min-h-screen bg-[#f8f8f7] lg:flex">
