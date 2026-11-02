@@ -44,8 +44,8 @@ export function CatalogShareDialog({ clientes, erroClientes, onClose }) {
   }
   return (
     <dialog ref={dialogRef} onCancel={(event) => { event.preventDefault(); onClose(); }} aria-labelledby="catalog-share-title"
-      className="animate-modal-in fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-3xl border border-[#ebe8e5] bg-white p-6 text-[#292524] shadow-2xl backdrop:bg-[#292524]/45 backdrop:backdrop-blur-sm">
-      <div className="flex items-start justify-between gap-4">
+      className="app-modal-panel app-modal-native animate-modal-in fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-3xl border border-[#ebe8e5] bg-white p-6 text-[#292524] shadow-2xl backdrop:bg-[#292524]/45 backdrop:backdrop-blur-sm">
+      <div className="app-modal-heading flex items-start justify-between gap-4">
         <div><h2 id="catalog-share-title" className="text-xl font-semibold">Compartilhar catálogo</h2><p className="mt-2 text-sm text-[#78716c]">Peças disponíveis e preços de venda, sem precisar entrar na conta.</p></div>
         <button type="button" onClick={onClose} aria-label="Fechar catálogo" className="rounded-lg px-2 text-2xl text-[#918b87]">×</button>
       </div>
@@ -60,7 +60,7 @@ export function CatalogShareDialog({ clientes, erroClientes, onClose }) {
         {erro && <p role="alert" className="mt-4 rounded-xl bg-[#fff5ed] p-3 text-sm text-[#ad5847]">{erro}</p>}
         {aviso && <p role="status" className="mt-3 text-sm text-[#4f8c6d]">{aviso}</p>}
       </div>
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+      <div className="app-modal-actions mt-6 flex flex-col gap-3 sm:flex-row">
         <button type="button" disabled={!link} onClick={copiar} className="flex-1 rounded-xl border border-[#ded8d4] px-4 py-3 text-sm font-semibold text-[#675e59] disabled:opacity-40">Copiar link</button>
         <button type="button" disabled={!link || !cliente || !telefoneWhatsApp(cliente.telefone)} onClick={enviar} className="flex-1 rounded-xl bg-[#9b6d64] px-4 py-3 text-sm font-semibold text-white disabled:opacity-40">Enviar catálogo</button>
       </div>

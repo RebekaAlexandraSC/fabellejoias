@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useViewportPagination } from "@/hooks/use-viewport-pagination";
 import { ListPagination } from "@/components/ui/list-pagination";
 import { normalizarBusca } from "@/lib/list-pagination";
+import { BatchEntryForm } from "@/components/stock/batch-entry-form";
 import { CatalogShareDialog } from "@/components/stock/catalog-share-dialog";
 import { CampoSelecao } from "@/components/ui/campo-selecao";
 import { Icon } from "@/components/ui/icon";
@@ -31,7 +32,6 @@ export function StockManager({
   const [showProductForm, setShowProductForm] = useState(false);
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [showEntryForm, setShowEntryForm] = useState(false);
-  const [produtoEntrada, setProdutoEntrada] = useState("");
   const [produtoEmEdicao, setProdutoEmEdicao] = useState({ id: null });
   const [imagemAmpliada, setImagemAmpliada] = useState({
     url: "",
@@ -146,27 +146,22 @@ export function StockManager({
     router.refresh();
   }
 
-  async function registerEntry(form) {
+  async function registerEntry(entrada) {
+    if (saving) return;
     setSaving(true);
     setMessage("");
-    const values = Object.fromEntries(new FormData(form));
-    const produto = produtosEntrada.find((item) => item.id === values.produto_id);
-    if (!produto) { setSaving(false); return setMessage("Selecione um produto válido nas sugestões."); }
-    const { error } = await createClient().rpc("registrar_entrada_estoque", {
-      p_produto_id: produto.id,
-      p_quantidade: Number(values.quantidade),
-      p_custo_unitario: Number(values.custo_unitario),
-      p_preco_sugerido: Number(values.preco_sugerido),
-      p_data_entrada: values.data_entrada,
-      p_observacao: values.observacao || null,
-    });
-    setSaving(false);
-    if (error)
-      return setMessage(
-        "Não foi possível registrar a entrada. Confirme se a migração do banco foi aplicada.",
-      );
-    setShowEntryForm(false);
-    router.refresh();
+    try {
+      const { error } = await createClient().rpc("registrar_entradas_estoque", { p_data_entrada: entrada.data_entrada, p_itens: entrada.itens });
+      if (error) {
+        setMessage(["PGRST202", "42883"].includes(error.code)
+          ? "Para registrar entradas em lote, aplique a migração desta atualização no Supabase. Nenhuma entrada foi registrada."
+          : "Não foi possível registrar as entradas. Nenhum item foi salvo. Confira os produtos, as quantidades e os valores e tente novamente.");
+        return;
+      }
+      setShowEntryForm(false);
+      router.refresh();
+    } catch { setMessage("Não foi possível confirmar o registro. Verifique sua conexão e confira as entradas por lote antes de reenviar."); }
+    finally { setSaving(false); }
   }
 
   return (
@@ -208,7 +203,6 @@ export function StockManager({
           </button>
           <button
             onClick={() => {
-              setProdutoEntrada("");
               setShowEntryForm(true);
               setMessage("");
             }}
@@ -361,9 +355,9 @@ export function StockManager({
       </section>
       {catalogoAberto && <CatalogShareDialog clientes={clientesCatalogo} erroClientes={erroClientesCatalogo} onClose={() => setCatalogoAberto(false)} />}
       {(showProductForm || showCategoryForm || showEntryForm) && (
-        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[#292524]/35 p-4">
-          <div className="my-5 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex items-start justify-between gap-4">
+        <div className="app-modal-overlay bg-[#292524]/35">
+          <div className={"app-modal-panel w-full rounded-2xl bg-white p-6 shadow-xl " + (showEntryForm ? "max-w-3xl" : "max-w-md")}>
+            <div className="app-modal-heading flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-[#292524]">
                   {showEntryForm
@@ -374,13 +368,15 @@ export function StockManager({
                 </h2>
                 <p className="mt-1 text-sm text-[#78716c]">
                   {showEntryForm
-                    ? "Cada entrada cria um lote e atualiza o saldo do produto."
+                    ? "Uma data para todos os produtos. Cada item cria seu próprio lote no estoque."
                     : showProductForm
                       ? "Cadastre a referência; a entrada de peças vem na próxima etapa."
                       : "Use categorias para organizar suas referências."}
                 </p>
               </div>
               <button
+                disabled={saving}
+                aria-label="Fechar formulário"
                 onClick={() => {
                   setShowProductForm(false);
                   setShowCategoryForm(false);
@@ -398,78 +394,7 @@ export function StockManager({
               </p>
             )}
             {showEntryForm ? (
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  registerEntry(event.currentTarget);
-                }}
-                className="mt-6 space-y-4"
-              >
-                <label className="block">
-                  <span className="mb-1.5 block text-sm font-medium text-[#57534e]">
-                    Produto
-                  </span>
-                  <CampoSelecao
-                    name="produto_id"
-                    opcoes={produtosEntrada.map((product) => ({
-                      valor: product.id,
-                      rotulo: product.referencia,
-                      detalhe: product.descricao || "Sem descrição",
-                    }))}
-                    valor={produtoEntrada}
-                    aoSelecionar={setProdutoEntrada}
-                    placeholder="Buscar produto"
-                  />
-                </label>
-                <div className="grid grid-cols-2 gap-4">
-                  <Field
-                    name="quantidade"
-                    label="Quantidade"
-                    type="number"
-                    min="1"
-                    required
-                  />
-                  <Field
-                    name="data_entrada"
-                    label="Data da entrada"
-                    type="date"
-                    defaultValue={new Date().toISOString().slice(0, 10)}
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <Field
-                    name="custo_unitario"
-                    label="Custo unitário"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0,00"
-                    required
-                  />
-                  <Field
-                    name="preco_sugerido"
-                    label="Preço sugerido"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0,00"
-                    required
-                  />
-                </div>
-                <label className="block">
-                  <span className="mb-1.5 block text-sm font-medium text-[#57534e]">
-                    Observação{" "}
-                    <em className="font-normal text-[#9a9591]">(opcional)</em>
-                  </span>
-                  <textarea
-                    name="observacao"
-                    rows="3"
-                    className="w-full resize-none rounded-xl border border-[#ded8d4] px-3 py-2.5 text-sm outline-none focus:border-[#9b6d64]"
-                  />
-                </label>
-                <Submit saving={saving} label="Confirmar entrada" />
-              </form>
+              <BatchEntryForm produtos={produtosEntrada} saving={saving} onSave={registerEntry} />
             ) : showProductForm ? (
               <form
                 onSubmit={(event) => {
@@ -559,7 +484,7 @@ export function StockManager({
       )}
       {imagemAmpliada.url && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-[#292524]/70 p-5"
+          className="app-modal-overlay bg-[#292524]/70"
           onClick={() => setImagemAmpliada({ url: "", referencia: "" })}
         >
           <div
@@ -575,7 +500,7 @@ export function StockManager({
             <img
               src={imagemAmpliada.url}
               alt={imagemAmpliada.referencia}
-              className="max-h-[80vh] max-w-full rounded-2xl object-contain shadow-2xl"
+              className="max-h-[calc(100dvh-4rem)] max-w-full rounded-2xl object-contain shadow-2xl"
             />
             <p className="mt-3 text-center text-sm font-semibold text-white">
               {imagemAmpliada.referencia}
@@ -622,12 +547,12 @@ function Field({ label, ...props }) {
 }
 function Submit({ saving, label }) {
   return (
-    <button
+    <div className="app-modal-actions"><button
       disabled={saving}
       className="mt-2 w-full rounded-xl bg-[#9b6d64] px-4 py-3 text-sm font-semibold text-white hover:bg-[#855b53] disabled:opacity-70"
     >
       {saving ? "Salvando..." : label}
-    </button>
+    </button></div>
   );
 }
 function EmptyProducts({ hasSearch, onCreate }) {

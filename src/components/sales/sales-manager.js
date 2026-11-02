@@ -247,9 +247,9 @@ export function GerenciadorVendas({ customers, products, sales, erroCarregamento
       </section>
       {vendaDetalhada && <SaleDetailsDialog venda={vendaDetalhada} onClose={() => setVendaDetalhada(null)} />}
       {open && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-[#292524]/35 p-4">
-          <div className="mx-auto my-5 w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex justify-between gap-4">
+        <div className="app-modal-overlay bg-[#292524]/35">
+          <div className="app-modal-panel w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
+            <div className="app-modal-heading flex justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-[#292524]">
                   Nova venda
@@ -435,12 +435,12 @@ export function GerenciadorVendas({ customers, products, sales, erroCarregamento
                   className="w-full rounded-xl border border-[#ded8d4] p-3 text-sm"
                 />
               </label>
-              <button
+              <div className="app-modal-actions"><button
                 disabled={saving || !total}
                 className="w-full rounded-xl bg-[#9b6d64] py-3 text-sm font-semibold text-white disabled:opacity-50"
               >
                 {saving ? "Registrando..." : "Confirmar venda"}
-              </button>
+              </button></div>
             </form>
           </div>
         </div>

@@ -134,18 +134,18 @@ export function EntryManager({ entries = [], erroCarregamento = "" }) {
         <ListPagination pagination={pagination} total={filteredEntries.length} label="entradas" />
       </section>
       {editing.id && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-[#292524]/35 p-4">
+        <div className="app-modal-overlay bg-[#292524]/35">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               save(e.currentTarget);
             }}
-            className="animate-modal-in w-full max-w-md rounded-2xl bg-white p-6"
+            className="app-modal-panel animate-modal-in w-full max-w-md rounded-2xl bg-white p-6"
           >
-            <h2 className="text-xl font-semibold">Editar entrada</h2>
+            <div className="app-modal-heading"><h2 className="text-xl font-semibold">Editar entrada</h2>
             <p className="mt-1 text-sm text-[#78716c]">
               {editing.produto?.referencia || "Produto"} · {editing.quantidade} peças
-            </p>
+            </p></div>
             <label className="mt-4 block text-sm">
               Custo unitário
               <input
@@ -185,6 +185,7 @@ export function EntryManager({ entries = [], erroCarregamento = "" }) {
                 className="mt-1 w-full rounded-xl border p-2.5"
               />
             </label>
+            <div className="app-modal-actions">
             <button className="mt-5 w-full rounded-xl bg-[#9b6d64] py-3 text-sm font-semibold text-white">
               Salvar alterações
             </button>
@@ -195,6 +196,7 @@ export function EntryManager({ entries = [], erroCarregamento = "" }) {
             >
               Cancelar
             </button>
+            </div>
           </form>
         </div>
       )}

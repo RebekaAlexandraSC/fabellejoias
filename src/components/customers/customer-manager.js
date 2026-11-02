@@ -168,9 +168,9 @@ export function CustomerManager({ customers }) {
         )}
       </section>
       {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-[#292524]/35 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex items-start justify-between">
+        <div className="app-modal-overlay bg-[#292524]/35">
+          <div className="app-modal-panel w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="app-modal-heading flex items-start justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-[#292524]">
                   {clienteEmEdicao.id ? "Editar cliente" : "Nova cliente"}
@@ -224,7 +224,8 @@ export function CustomerManager({ customers }) {
                   className="w-full resize-none rounded-xl border border-[#ded8d4] px-3 py-2.5 text-sm outline-none focus:border-[#9b6d64]"
                 />
               </label>
-              <button
+              <div className="app-modal-actions">
+                <button
                 disabled={saving}
                 className="w-full rounded-xl bg-[#9b6d64] px-4 py-3 text-sm font-semibold text-white hover:bg-[#855b53] disabled:opacity-70"
               >
@@ -234,6 +235,7 @@ export function CustomerManager({ customers }) {
                     ? "Salvar alterações"
                     : "Cadastrar cliente"}
               </button>
+                </div>
             </form>
           </div>
         </div>

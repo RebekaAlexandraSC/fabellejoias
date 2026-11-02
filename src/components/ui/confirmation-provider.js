@@ -61,7 +61,7 @@ export function ConfirmationProvider({ children }) {
           aria-describedby="confirmation-description"
           onCancel={(event) => { event.preventDefault(); finish(false); }}
           onClose={() => { if (pendingRef.current) finish(false); }}
-          className="confirmation-dialog animate-modal-in fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-3xl border border-[#ebe8e5] bg-white p-0 text-[#292524] shadow-2xl backdrop:bg-[#292524]/45 backdrop:backdrop-blur-sm"
+          className="confirmation-dialog app-modal-panel app-modal-native animate-modal-in fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-3xl border border-[#ebe8e5] bg-white p-0 text-[#292524] shadow-2xl backdrop:bg-[#292524]/45 backdrop:backdrop-blur-sm"
         >
           <div className="p-6 sm:p-7">
             <div aria-hidden="true" className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fff1ed] text-[#ad5847]">
@@ -73,7 +73,7 @@ export function ConfirmationProvider({ children }) {
             <h2 id="confirmation-title" className="text-xl font-semibold">{dialogOptions.title || "Confirmar exclusão"}</h2>
             <p id="confirmation-description" className="mt-3 text-sm leading-6 text-[#78716c]">{message}</p>
           </div>
-          <div className="flex flex-col-reverse gap-3 border-t border-[#f0edeb] bg-[#fcfbfa] px-6 py-4 sm:flex-row sm:justify-end sm:px-7">
+          <div className="app-modal-actions flex flex-col-reverse gap-3 border-t border-[#f0edeb] bg-[#fcfbfa] px-6 py-4 sm:flex-row sm:justify-end sm:px-7">
             <button ref={cancelRef} type="button" onClick={() => finish(false)} className="rounded-xl border border-[#ded8d4] bg-white px-5 py-2.5 text-sm font-semibold text-[#675e59] hover:bg-[#f5f3f1] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9b6d64]">Cancelar</button>
             <button type="button" onClick={() => finish(true)} className="rounded-xl bg-[#ad5847] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#944a3b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ad5847]">{dialogOptions.confirmLabel || "Sim, excluir"}</button>
           </div>

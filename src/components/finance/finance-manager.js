@@ -249,9 +249,9 @@ export function FinanceManager({
         )}
       </section>
       {open && (
-        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[#292524]/35 p-4">
-          <div className="my-5 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex justify-between">
+        <div className="app-modal-overlay bg-[#292524]/35">
+          <div className="app-modal-panel w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="app-modal-heading flex justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-[#292524]">
                   Nova saída
@@ -346,26 +346,28 @@ export function FinanceManager({
                   className="w-full rounded-xl border border-[#ded8d4] p-3 text-sm"
                 />
               </label>
-              <button
+              <div className="app-modal-actions">
+                <button
                 disabled={saving}
                 className="w-full rounded-xl bg-[#9b6d64] py-3 text-sm font-semibold text-white disabled:opacity-50"
               >
                 {saving ? "Registrando..." : "Registrar saída"}
               </button>
+                </div>
             </form>
           </div>
         </div>
       )}
       {parcelaParaQuitar && (
-        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[#292524]/35 p-4">
+        <div className="app-modal-overlay bg-[#292524]/35">
           <form
             onSubmit={(event) => {
               event.preventDefault();
               quitarParcela(event.currentTarget);
             }}
-            className="my-5 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+            className="app-modal-panel w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
           >
-            <div className="flex items-start justify-between gap-4">
+            <div className="app-modal-heading flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-[#292524]">
                   {parcelaParaQuitar.tipo === "receive"
@@ -412,12 +414,14 @@ export function FinanceManager({
               parcelas. Se for maior, ele abaterá as próximas parcelas
               pendentes.
             </p>
-            <button
+            <div className="app-modal-actions">
+              <button
               disabled={saving}
               className="mt-5 w-full rounded-xl bg-[#9b6d64] py-3 text-sm font-semibold text-white disabled:opacity-50"
             >
               {saving ? "Salvando..." : "Confirmar quitação"}
             </button>
+              </div>
           </form>
         </div>
       )}

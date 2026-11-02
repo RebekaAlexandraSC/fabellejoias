@@ -76,3 +76,52 @@ button:disabled {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Shared viewport bounds for every modal. Only the panel scrolls. */
+.app-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 1rem;
+}
+.app-modal-panel {
+  min-width: 0;
+  min-height: 0;
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-block: 5rem;
+  margin-block: 0;
+}
+.app-modal-native { margin: auto; }
+.app-modal-heading {
+  position: sticky;
+  top: -1.5rem;
+  z-index: 40;
+  margin-inline: -1.5rem;
+  margin-top: -1.5rem;
+  padding: 1.5rem 1.5rem 1rem;
+  background: white;
+  border-bottom: 1px solid #f0edeb;
+}
+.app-modal-actions {
+  position: sticky;
+  bottom: -1.5rem;
+  z-index: 20;
+  margin-inline: -1.5rem;
+  margin-bottom: -1.5rem;
+  padding: 1rem 1.5rem 1.5rem;
+  background: white;
+  border-top: 1px solid #f0edeb;
+}
+body:has(.app-modal-overlay), body:has(dialog[open]) { overflow: hidden; }
+/* Confirmation dialogs have no outer padding to offset. */
+.confirmation-dialog .app-modal-actions {
+  margin: 0;
+  bottom: 0;
+}
