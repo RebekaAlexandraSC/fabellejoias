@@ -7,7 +7,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useViewportPagination } from "@/hooks/use-viewport-pagination";
 import { ListPagination } from "@/components/ui/list-pagination";
-import { normalizarBusca } from "@/lib/list-pagination";
+import { produtoCorrespondeBusca } from "@/lib/product-search";
 import { CategoriesDialog } from "@/components/stock/categories-dialog";
 import { BatchEntryForm } from "@/components/stock/batch-entry-form";
 import { CatalogShareDialog } from "@/components/stock/catalog-share-dialog";
@@ -44,7 +44,7 @@ export function StockManager({
   const visibleProducts = useMemo(
     () =>
       products.filter((product) =>
-        normalizarBusca(product.referencia).includes(normalizarBusca(search.trim())),
+        produtoCorrespondeBusca(product, search),
       ),
     [products, search],
   );
@@ -175,11 +175,11 @@ export function StockManager({
             </p>
           </div>
           <label className="relative block sm:w-64">
-            <span className="sr-only">Buscar produto</span>
+            <span className="sr-only">Buscar por referência ou descrição</span>
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar referência"
+              placeholder="Buscar referência ou descrição"
               className="w-full rounded-xl border border-[#e4dfdb] bg-[#faf9f8] px-4 py-2.5 text-sm outline-none placeholder:text-[#aaa39e] focus:border-[#9b6d64]"
             />
           </label>
@@ -203,7 +203,7 @@ export function StockManager({
               </>}
             </article>)}
           </div>
-        ) : <div className="p-10 text-center text-sm text-[#918b87]">{search.trim() ? "Nenhum produto encontrado para esta referência." : cadastro ? "Nenhum produto cadastrado." : "Nenhum produto com estoque disponível."}</div>}
+        ) : <div className="p-10 text-center text-sm text-[#918b87]">{search.trim() ? (cadastro ? "Nenhum produto encontrado para esta referência ou descrição." : "Nenhum produto disponível encontrado. Consulte Produtos para verificar referências sem estoque.") : cadastro ? "Nenhum produto cadastrado." : "Nenhum produto com estoque disponível."}</div>}
         <ListPagination pagination={pagination} total={visibleProducts.length} label="produtos" />
       </section>
       {categoriasAbertas && <CategoriesDialog categories={categories} onClose={() => setCategoriasAbertas(false)} />}
