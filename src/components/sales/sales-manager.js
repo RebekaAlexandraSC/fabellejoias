@@ -1,4 +1,6 @@
 "use client";
+import { MoneyInput } from "@/components/ui/money-input";
+import { formatarMoeda, formatarValorDoBanco, converterMoedaParaNumero } from "@/lib/money";
 import { useConfirmation } from "@/components/ui/confirmation-provider";
 
 import { useMemo, useState } from "react";
@@ -110,7 +112,7 @@ export function GerenciadorVendas({ customers, products, sales, erroCarregamento
     const { error } = await createClient().rpc("registrar_venda", {
       p_cliente_id: clienteSelecionado,
       p_itens: validItems,
-      p_quantidade_parcelas: Number(fields.quantidade_parcelas),
+      p_quantidade_parcelas: 1,
       p_data_venda: fields.data_venda,
       p_primeiro_vencimento: fields.primeiro_vencimento,
       p_observacao: fields.observacao || null,
@@ -349,7 +351,7 @@ export function GerenciadorVendas({ customers, products, sales, erroCarregamento
                             required
                             className="rounded-xl border border-[#ded8d4] px-2 text-sm"
                           />
-                          <input
+                          <MoneyInput
                             value={item.preco_unitario}
                             onChange={(event) =>
                               atualizarItem(
@@ -409,16 +411,8 @@ export function GerenciadorVendas({ customers, products, sales, erroCarregamento
                   required
                 />
                 <Field
-                  name="quantidade_parcelas"
-                  label="Número de parcelas"
-                  type="number"
-                  min="1"
-                  defaultValue="1"
-                  required
-                />
-                <Field
                   name="primeiro_vencimento"
-                  label="Primeiro vencimento"
+                  label="Data de vencimento"
                   type="date"
                   value={primeiroVencimento}
                   onChange={(event) => setPrimeiroVencimento(event.target.value)}
@@ -447,29 +441,6 @@ export function GerenciadorVendas({ customers, products, sales, erroCarregamento
       )}
     </div>
   );
-}
-
-function converterMoedaParaNumero(valor) {
-  const numeros = String(valor || "").replace(/\D/g, "");
-  return numeros ? Number(numeros) / 100 : 0;
-}
-
-function formatarMoeda(valor) {
-  const numeros = String(valor || "").replace(/\D/g, "");
-
-  if (!numeros) return "";
-
-  return (Number(numeros) / 100).toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function formatarValorDoBanco(valor) {
-  return Number(valor).toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
 }
 
 function Field({ label, ...props }) {

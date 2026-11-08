@@ -1,6 +1,7 @@
 import { FinanceManager } from "@/components/finance/finance-manager";
 import { createClient } from "@/lib/supabase/server";
 
+import { agruparDebitosPorCliente } from "@/lib/customer-debt";
 import { listarTodos } from "@/lib/listar-todos";
 export default async function FinancePage() {
   const supabase = await createClient();
@@ -22,7 +23,7 @@ export default async function FinancePage() {
   ] = await Promise.all([
     listarTodos(() => supabase
       .from("parcelas")
-      .select("id, valor, data_vencimento, vendas(clientes(nome, telefone))")
+      .select("id, valor, data_vencimento, vendas(cliente_id, clientes(nome, telefone))")
       .is("data_pagamento", null)
       .order("data_vencimento").order("id")),
     listarTodos(() => supabase
@@ -56,7 +57,7 @@ export default async function FinancePage() {
   ]);
   return (
     <FinanceManager
-      receivables={receivables || []}
+      receivables={agruparDebitosPorCliente(receivables || [])}
       payables={payables || []}
       saidas={saidas || []}
       contasRecebidas={received || []}

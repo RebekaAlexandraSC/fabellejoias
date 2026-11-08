@@ -1,4 +1,6 @@
 "use client";
+import { MoneyInput } from "@/components/ui/money-input";
+import { converterMoedaParaNumero } from "@/lib/money";
 import { useConfirmation } from "@/components/ui/confirmation-provider";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -31,8 +33,8 @@ export function EntryManager({ entries = [], erroCarregamento = "" }) {
     const d = Object.fromEntries(new FormData(form));
     const { error } = await createClient().rpc("editar_entrada_estoque", {
       p_entrada_id: editing.id,
-      p_custo_unitario: Number(d.custo_unitario),
-      p_preco_sugerido: Number(d.preco_sugerido),
+      p_custo_unitario: converterMoedaParaNumero(d.custo_unitario),
+      p_preco_sugerido: converterMoedaParaNumero(d.preco_sugerido),
       p_data_entrada: d.data_entrada,
       p_observacao: d.observacao || null,
     });
@@ -105,10 +107,10 @@ export function EntryManager({ entries = [], erroCarregamento = "" }) {
                   <td className="p-4">{e.quantidade}</td>
                   <td className="p-4">{e.quantidade_disponivel}</td>
                   <td className="p-4">
-                    R$ {Number(e.custo_unitario).toFixed(2)}
+                    {Number(e.custo_unitario).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                   </td>
                   <td className="p-4">
-                    R$ {Number(e.preco_sugerido).toFixed(2)}
+                    {Number(e.preco_sugerido).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                   </td>
                   <td className="p-4 text-right">
                     {used ? (
@@ -148,22 +150,16 @@ export function EntryManager({ entries = [], erroCarregamento = "" }) {
             </p></div>
             <label className="mt-4 block text-sm">
               Custo unitário
-              <input
+              <MoneyInput
                 name="custo_unitario"
-                type="number"
-                min="0"
-                step="0.01"
                 defaultValue={editing.custo_unitario}
                 className="mt-1 w-full rounded-xl border p-2.5"
               />
             </label>
             <label className="mt-4 block text-sm">
               Preço sugerido
-              <input
+              <MoneyInput
                 name="preco_sugerido"
-                type="number"
-                min="0"
-                step="0.01"
                 defaultValue={editing.preco_sugerido}
                 className="mt-1 w-full rounded-xl border p-2.5"
               />

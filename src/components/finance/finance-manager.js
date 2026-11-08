@@ -1,9 +1,12 @@
 "use client";
+import { MoneyInput } from "@/components/ui/money-input";
+import { converterMoedaParaNumero } from "@/lib/money";
 import { useConfirmation } from "@/components/ui/confirmation-provider";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { dataVendaHoje, vencimentoMesSeguinte } from "@/lib/sale-dates";
 import { reabrirParcela } from "@/lib/undo-payment";
 import { PaymentHistory } from "@/components/finance/payment-history";
 import { Icon } from "@/components/ui/icon";
@@ -13,9 +16,6 @@ const money = new Intl.NumberFormat("pt-BR", {
   currency: "BRL",
 });
 const today = new Date().toISOString().slice(0, 10);
-const firstDue = new Date(Date.now() + 30 * 86400000)
-  .toISOString()
-  .slice(0, 10);
 
 export function FinanceManager({
   receivables = [],
@@ -29,6 +29,8 @@ export function FinanceManager({
   const router = useRouter();
   const confirmAction = useConfirmation();
   const [open, setOpen] = useState(false);
+  const [dataSaida, setDataSaida] = useState(dataVendaHoje);
+  const [primeiroVencimento, setPrimeiroVencimento] = useState(() => vencimentoMesSeguinte(dataSaida));
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [desfazendoBaixa, setDesfazendoBaixa] = useState("");
@@ -54,10 +56,11 @@ export function FinanceManager({
     setSaving(true);
     setMessage("");
     const data = Object.fromEntries(new FormData(form));
+    if (converterMoedaParaNumero(data.valor_total) <= 0) { setSaving(false); return setMessage("Informe um valor total maior que zero."); }
     const { error } = await createClient().rpc("registrar_saida", {
       p_descricao: data.descricao,
       p_categoria: data.categoria,
-      p_valor_total: Number(data.valor_total),
+      p_valor_total: converterMoedaParaNumero(data.valor_total),
       p_quantidade_parcelas: Number(data.quantidade_parcelas),
       p_data_saida: data.data_saida,
       p_primeiro_vencimento: data.primeiro_vencimento,
@@ -78,15 +81,23 @@ export function FinanceManager({
     }
 
     setSaving(true);
-    const { error } = await createClient().rpc("quitar_parcela", {
-      p_parcela_id: parcelaParaQuitar.id,
-      p_data_pagamento: today,
-      p_forma_pagamento: "pix",
-      p_valor_pago: valorPago,
-    });
+    const supabase = createClient();
+    const { error } = parcelaParaQuitar.tipo === "receive"
+      ? await supabase.rpc("receber_debito_cliente", {
+          p_cliente_id: parcelaParaQuitar.cliente_id,
+          p_data_pagamento: dados.data_pagamento,
+          p_forma_pagamento: "pix",
+          p_valor_pago: valorPago,
+        })
+      : await supabase.rpc("quitar_parcela", {
+          p_parcela_id: parcelaParaQuitar.id,
+          p_data_pagamento: dados.data_pagamento,
+          p_forma_pagamento: "pix",
+          p_valor_pago: valorPago,
+        });
     setSaving(false);
     if (error) {
-      setMessage(error.message || "Não foi possível marcar como paga.");
+      setMessage(["PGRST202", "42883"].includes(error.code) ? "Aplique a migração de débito por cliente no Supabase antes de registrar este recebimento." : error.code === "P0001" ? error.message : "Não foi possível confirmar o pagamento. Confira o histórico antes de tentar novamente.");
     } else {
       setParcelaParaQuitar(null);
       router.refresh();
@@ -140,6 +151,9 @@ export function FinanceManager({
         </div>
         <button
           onClick={() => {
+            const hoje = dataVendaHoje();
+            setDataSaida(hoje);
+            setPrimeiroVencimento(vencimentoMesSeguinte(hoje));
             setOpen(true);
             setMessage("");
           }}
@@ -158,7 +172,7 @@ export function FinanceManager({
         <Summary
           title="A receber"
           value={money.format(totalReceive)}
-          detail={`${receivables.length} parcelas pendentes`}
+          detail={`${receivables.length} ${receivables.length === 1 ? "cliente com débito" : "clientes com débitos"}`}
           icon="wallet"
           tone="rose"
         />
@@ -308,9 +322,7 @@ export function FinanceManager({
                 <Field
                   name="valor_total"
                   label="Valor total"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
+                  monetario
                   required
                 />
                 <Field
@@ -325,14 +337,16 @@ export function FinanceManager({
                   name="data_saida"
                   label="Data"
                   type="date"
-                  defaultValue={today}
+                  value={dataSaida}
+                  onChange={(event) => { setDataSaida(event.target.value); setPrimeiroVencimento(vencimentoMesSeguinte(event.target.value)); }}
                   required
                 />
                 <Field
                   name="primeiro_vencimento"
                   label="Primeiro vencimento"
                   type="date"
-                  defaultValue={firstDue}
+                  value={primeiroVencimento}
+                  onChange={(event) => setPrimeiroVencimento(event.target.value)}
                   required
                 />
               </div>
@@ -388,7 +402,7 @@ export function FinanceManager({
               </button>
             </div>
             <p className="mt-5 rounded-xl bg-[#faf6f4] p-3 text-sm text-[#675e59]">
-              Valor atual da parcela:{" "}
+              {parcelaParaQuitar.tipo === "receive" ? "Débito total da cliente: " : "Valor atual da parcela: "}
               {money.format(Number(parcelaParaQuitar.valor))}
             </p>
             {message && (
@@ -396,23 +410,16 @@ export function FinanceManager({
                 {message}
               </p>
             )}
+            <Field name="data_pagamento" label="Data do pagamento" type="date" defaultValue={dataVendaHoje()} required />
             <Field
               name="valor_pago"
               label="Valor recebido/pago"
-              type="text"
-              inputMode="numeric"
-              defaultValue={formatarValorDoBanco(parcelaParaQuitar.valor)}
-              onChange={(event) => {
-                event.currentTarget.value = formatarMoeda(
-                  event.currentTarget.value,
-                );
-              }}
+              monetario
+              defaultValue={parcelaParaQuitar.valor}
               required
             />
             <p className="mt-3 text-xs leading-5 text-[#78716c]">
-              Se o valor for menor, o saldo será redistribuído entre as próximas
-              parcelas. Se for maior, ele abaterá as próximas parcelas
-              pendentes.
+              {parcelaParaQuitar.tipo === "receive" ? "O valor recebido será abatido do débito total. O restante vencerá no mesmo dia do mês seguinte à data do pagamento; se o dia não existir, será usado o último dia do mês." : "Se o valor for menor, o saldo será redistribuído entre as próximas parcelas. Se for maior, ele abaterá as próximas parcelas pendentes."}
             </p>
             <div className="app-modal-actions">
               <button
@@ -491,7 +498,7 @@ function InstallmentList({ title, items, type, onPay }) {
                     onClick={() => onPay({ ...item, tipo: type, nome: name })}
                     className="mt-1 text-xs font-semibold text-[#9b6d64]"
                   >
-                    Marcar como paga
+                    {type === "receive" ? "Registrar recebimento" : "Marcar como paga"}
                   </button>
                   {type === "receive" &&
                     (linkCobranca ? (
@@ -518,7 +525,7 @@ function InstallmentList({ title, items, type, onPay }) {
         </div>
       ) : (
         <div className="p-10 text-center text-sm text-[#918b87]">
-          Nenhuma parcela pendente.
+          {type === "receive" ? "Nenhuma cliente com débito pendente." : "Nenhuma parcela pendente."}
         </div>
       )}
     </section>
@@ -543,36 +550,17 @@ function formatarData(valor) {
   return new Date(`${valor}T12:00:00`).toLocaleDateString("pt-BR");
 }
 
-function converterMoedaParaNumero(valor) {
-  const numeros = String(valor || "").replace(/\D/g, "");
-  return numeros ? Number(numeros) / 100 : 0;
-}
 
-function formatarMoeda(valor) {
-  const numeros = String(valor || "").replace(/\D/g, "");
 
-  if (!numeros) return "";
 
-  return (Number(numeros) / 100).toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function formatarValorDoBanco(valor) {
-  return Number(valor || 0).toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function Field({ label, ...props }) {
+function Field({ label, monetario, ...props }) {
+  const Input = monetario ? MoneyInput : "input";
   return (
     <label className="block">
       <span className="mb-1.5 block text-sm font-medium text-[#57534e]">
         {label}
       </span>
-      <input
+      <Input
         {...props}
         className="w-full rounded-xl border border-[#ded8d4] px-3 py-2.5 text-sm"
       />

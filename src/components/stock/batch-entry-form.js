@@ -1,4 +1,6 @@
 "use client";
+import { MoneyInput } from "@/components/ui/money-input";
+import { converterMoedaParaNumero } from "@/lib/money";
 import { useEffect, useRef, useState } from "react";
 import { CampoSelecao } from "@/components/ui/campo-selecao";
 import { Icon } from "@/components/ui/icon";
@@ -6,8 +8,9 @@ import { dataVendaHoje } from "@/lib/sale-dates";
 import { prepararEntradas } from "@/lib/batch-entry";
 const dinheiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const vazio = (key) => ({ key, produto_id: "", quantidade: "", custo_unitario: "", preco_sugerido: "", observacao: "" });
-function Campo({ label, ...props }) {
-  return <label className="block min-w-0"><span className="mb-1.5 block text-xs font-medium text-[#78716c]">{label}</span><input {...props} className="w-full min-w-0 rounded-xl border border-[#ded8d4] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#9b6d64]" /></label>;
+function Campo({ label, monetario, ...props }) {
+  const Input = monetario ? MoneyInput : "input";
+  return <label className="block min-w-0"><span className="mb-1.5 block text-xs font-medium text-[#78716c]">{label}</span><Input {...props} className="w-full min-w-0 rounded-xl border border-[#ded8d4] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#9b6d64]" /></label>;
 }
 export function BatchEntryForm({ produtos, saving, onSave }) {
   const proximaKey = useRef(1);
@@ -67,7 +70,7 @@ export function BatchEntryForm({ produtos, saving, onSave }) {
           <section key={item.key} aria-label={"Resumo do produto " + (indice + 1)} className="rounded-xl border border-[#ebe8e5] bg-white px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0"><p className="text-sm font-semibold text-[#57534e]">{produtos.find((produto) => produto.id === item.produto_id)?.referencia || "Produto não selecionado"}</p>
-                <p className="mt-1 text-xs leading-5 text-[#918b87]">Qtd.: {item.quantidade || "—"} · Custo: {item.custo_unitario !== "" ? dinheiro.format(Number(item.custo_unitario)) : "—"} · Sugerido: {item.preco_sugerido !== "" ? dinheiro.format(Number(item.preco_sugerido)) : "—"}</p>
+                <p className="mt-1 text-xs leading-5 text-[#918b87]">Qtd.: {item.quantidade || "—"} · Custo: {item.custo_unitario !== "" ? dinheiro.format(converterMoedaParaNumero(item.custo_unitario)) : "—"} · Sugerido: {item.preco_sugerido !== "" ? dinheiro.format(converterMoedaParaNumero(item.preco_sugerido)) : "—"}</p>
                 {item.observacao && <p title={item.observacao} className="mt-1 max-w-full truncate text-xs text-[#918b87]">{item.observacao}</p>}
               </div>
               <div className="flex shrink-0 items-center gap-3">
@@ -83,8 +86,8 @@ export function BatchEntryForm({ produtos, saving, onSave }) {
           <label className="block"><span className="mb-1.5 block text-xs font-medium text-[#78716c]">Produto</span><CampoSelecao opcoes={opcoes} valor={item.produto_id} aoSelecionar={(valor) => atualizar(item.key, "produto_id", valor)} placeholder="Buscar produto por referência ou descrição" /></label>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Campo label="Quantidade" type="number" min="1" step="1" value={item.quantidade} onChange={(event) => atualizar(item.key, "quantidade", event.target.value)} required />
-            <Campo label="Custo unitário (R$)" type="number" min="0" step="0.01" placeholder="0,00" value={item.custo_unitario} onChange={(event) => atualizar(item.key, "custo_unitario", event.target.value)} required />
-            <Campo label="Preço sugerido (R$)" type="number" min="0" step="0.01" placeholder="0,00" value={item.preco_sugerido} onChange={(event) => atualizar(item.key, "preco_sugerido", event.target.value)} required />
+            <Campo label="Custo unitário (R$)" monetario placeholder="0,00" value={item.custo_unitario} onChange={(event) => atualizar(item.key, "custo_unitario", event.target.value)} required />
+            <Campo label="Preço sugerido (R$)" monetario placeholder="0,00" value={item.preco_sugerido} onChange={(event) => atualizar(item.key, "preco_sugerido", event.target.value)} required />
           </div>
           <label className="mt-4 block"><span className="mb-1.5 block text-xs font-medium text-[#78716c]">Observação <span className="font-normal text-[#a09993]">(opcional)</span></span><textarea rows={2} value={item.observacao} onChange={(event) => atualizar(item.key, "observacao", event.target.value)} className="w-full rounded-xl border border-[#ded8d4] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#9b6d64]" /></label>
         </section>)}
