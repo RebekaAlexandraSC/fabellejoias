@@ -3,12 +3,14 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { CustomerHistoryDialog } from "@/components/customers/customer-history-dialog";
 import { Icon } from "@/components/ui/icon";
 
 export function CustomerManager({ customers }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [clienteHistorico, setClienteHistorico] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [clienteEmEdicao, setClienteEmEdicao] = useState({ id: null });
@@ -95,7 +97,7 @@ export function CustomerManager({ customers }) {
             {visibleCustomers.map((customer) => (
               <article
                 key={customer.id}
-                className="flex items-center gap-4 px-5 py-4 sm:px-6"
+                className="flex flex-wrap items-center gap-3 px-5 py-4 sm:gap-4 sm:px-6"
               >
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#f8ece9] text-sm font-semibold text-[#9b6d64]">
                   {customer.nome.slice(0, 1).toUpperCase()}
@@ -128,6 +130,7 @@ export function CustomerManager({ customers }) {
                 >
                   {customer.ativo ? "Ativa" : "Inativa"}
                 </span>
+                <button type="button" onClick={() => setClienteHistorico(customer)} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[#ded8d4] px-3 py-2 text-xs font-semibold text-[#9b6d64]" aria-label={"Ver histórico de " + customer.nome}><Icon name="receipt" size={16} /><span className="hidden sm:inline">Histórico</span></button>
                 <button
                   onClick={() => {
                     setClienteEmEdicao(customer);
@@ -167,6 +170,7 @@ export function CustomerManager({ customers }) {
           </div>
         )}
       </section>
+      {clienteHistorico && <CustomerHistoryDialog cliente={clienteHistorico} onClose={() => setClienteHistorico(null)} />}
       {open && (
         <div className="app-modal-overlay bg-[#292524]/35">
           <div className="app-modal-panel w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">

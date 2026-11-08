@@ -44,12 +44,13 @@ export function CatalogShareDialog({ clientes, erroClientes, onClose }) {
   }
   return (
     <dialog ref={dialogRef} onCancel={(event) => { event.preventDefault(); onClose(); }} aria-labelledby="catalog-share-title"
-      className="app-modal-panel app-modal-native animate-modal-in fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-3xl border border-[#ebe8e5] bg-white p-6 text-[#292524] shadow-2xl backdrop:bg-[#292524]/45 backdrop:backdrop-blur-sm">
-      <div className="app-modal-heading flex items-start justify-between gap-4">
+      className="animate-modal-in fixed inset-0 m-auto max-h-none w-[calc(100%-2rem)] max-w-lg overflow-hidden rounded-2xl border border-[#ebe8e5] bg-white p-0 text-[#292524] shadow-2xl outline-none backdrop:bg-[#292524]/45 backdrop:backdrop-blur-sm">
+      <div className="flex max-h-[calc(100dvh-2rem)] flex-col">
+      <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#f0edeb] p-5 sm:p-6">
         <div><h2 id="catalog-share-title" className="text-xl font-semibold">Compartilhar catálogo</h2><p className="mt-2 text-sm text-[#78716c]">Peças disponíveis e preços de venda, sem precisar entrar na conta.</p></div>
         <button type="button" onClick={onClose} aria-label="Fechar catálogo" className="rounded-lg px-2 text-2xl text-[#918b87]">×</button>
-      </div>
-      <div className="mt-6">
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
         <label className="block"><span className="mb-1.5 block text-sm font-medium text-[#57534e]">Cliente</span>
           <CampoSelecao opcoes={clientes.map((item) => ({ valor: item.id, rotulo: item.nome, detalhe: [item.telefone || "Sem WhatsApp cadastrado", item.observacao || ""].filter(Boolean).join(" · ") }))} valor={clienteId} aoSelecionar={setClienteId} placeholder="Buscar cliente" />
         </label>
@@ -60,11 +61,14 @@ export function CatalogShareDialog({ clientes, erroClientes, onClose }) {
         {erro && <p role="alert" className="mt-4 rounded-xl bg-[#fff5ed] p-3 text-sm text-[#ad5847]">{erro}</p>}
         {aviso && <p role="status" className="mt-3 text-sm text-[#4f8c6d]">{aviso}</p>}
       </div>
-      <div className="app-modal-actions mt-6 flex flex-col gap-3 sm:flex-row">
+      <footer className="shrink-0 border-t border-[#f0edeb] bg-[#fcfbfa] px-5 py-4 sm:px-6">
+      <div className="flex flex-col gap-3 sm:flex-row">
         <button type="button" disabled={!link} onClick={copiar} className="flex-1 rounded-xl border border-[#ded8d4] px-4 py-3 text-sm font-semibold text-[#675e59] disabled:opacity-40">Copiar link</button>
         <button type="button" disabled={!link || !cliente || !telefoneWhatsApp(cliente.telefone)} onClick={enviar} className="flex-1 rounded-xl bg-[#9b6d64] px-4 py-3 text-sm font-semibold text-white disabled:opacity-40">Enviar catálogo</button>
       </div>
       <p className="mt-3 text-xs leading-5 text-[#918b87]">O WhatsApp será aberto com a mensagem pronta para você confirmar o envio.</p>
+      </footer>
+      </div>
     </dialog>
   );
 }

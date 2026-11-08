@@ -48,7 +48,7 @@ export function EntryManager({ entries = [], erroCarregamento = "" }) {
         <Link href="/estoque" className="mb-4 inline-block text-sm font-semibold text-[#9b6d64]">← Voltar para Estoque</Link>
         <p className="mb-2 text-sm font-medium text-[#9b6d64]">Estoque</p>
         <h1 className="text-3xl font-semibold text-[#292524]">
-          Entradas por lote
+          Gerenciar estoque
         </h1>
         <p className="mt-2 text-sm text-[#78716c]">
           Lotes já usados em vendas são preservados para manter o histórico

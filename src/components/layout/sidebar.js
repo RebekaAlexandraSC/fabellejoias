@@ -9,9 +9,10 @@ import { createClient } from "@/lib/supabase/client";
 
 const primaryNav = [
   ["Visão geral", "grid", true, "/"],
-  ["Estoque", "gem", false, "/estoque"],
-  ["Vendas", "shoppingBag", false, "/vendas"],
   ["Clientes", "users", false, "/clientes"],
+  ["Produtos", "gem", false, "/produtos"],
+  ["Estoque", "box", false, "/estoque"],
+  ["Vendas", "shoppingBag", false, "/vendas"],
   ["Financeiro", "wallet", false, "/financeiro"],
   ["Relatórios", "chart", false, "/relatorios"],
 ];

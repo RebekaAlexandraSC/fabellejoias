@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useViewportPagination } from "@/hooks/use-viewport-pagination";
 import { ListPagination } from "@/components/ui/list-pagination";
 import { normalizarBusca } from "@/lib/list-pagination";
+import { CategoriesDialog } from "@/components/stock/categories-dialog";
 import { BatchEntryForm } from "@/components/stock/batch-entry-form";
 import { CatalogShareDialog } from "@/components/stock/catalog-share-dialog";
 import { CampoSelecao } from "@/components/ui/campo-selecao";
@@ -15,22 +16,23 @@ import { Icon } from "@/components/ui/icon";
 
 export function StockManager({
   products,
-  categories,
+  categories = [],
+  modo = "estoque",
   clientesCatalogo = [],
   erroClientesCatalogo = "",
   produtosEntrada = [],
   erroProdutosEntrada = "",
-  totalProdutos = 0,
   erroCarregamento = "",
-  resumoEstoque = null,
   buscaInicial = "",
 }) {
+  const cadastro = modo === "produtos";
+  const [categoriasAbertas, setCategoriasAbertas] = useState(false);
+  const moeda = (valor) => valor == null ? "Não informado" : Number(valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const router = useRouter();
   const confirmAction = useConfirmation();
   const [search, setSearch] = useState(buscaInicial);
   const [catalogoAberto, setCatalogoAberto] = useState(false);
   const [showProductForm, setShowProductForm] = useState(false);
-  const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [produtoEmEdicao, setProdutoEmEdicao] = useState({ id: null });
   const [imagemAmpliada, setImagemAmpliada] = useState({
@@ -42,14 +44,11 @@ export function StockManager({
   const visibleProducts = useMemo(
     () =>
       products.filter((product) =>
-        normalizarBusca(`${product.referencia} ${product.descricao || ""}`).includes(normalizarBusca(search.trim())),
+        normalizarBusca(product.referencia).includes(normalizarBusca(search.trim())),
       ),
     [products, search],
   );
   const pagination = useViewportPagination(visibleProducts, search, 77);
-  const lowStock = products.filter(
-    (product) => product.quantidade_estoque <= product.estoque_minimo,
-  ).length;
 
   useEffect(() => {
     setSearch(buscaInicial);
@@ -128,24 +127,6 @@ export function StockManager({
     router.refresh();
   }
 
-  async function createCategory(form) {
-    setSaving(true);
-    setMessage("");
-    const name = new FormData(form).get("nome").trim();
-    const { error } = await createClient()
-      .from("categorias")
-      .insert({ nome: name });
-    setSaving(false);
-    if (error)
-      return setMessage(
-        error.code === "23505"
-          ? "Essa categoria já existe."
-          : "Não foi possível cadastrar a categoria.",
-      );
-    setShowCategoryForm(false);
-    router.refresh();
-  }
-
   async function registerEntry(entrada) {
     if (saving) return;
     setSaving(true);
@@ -167,83 +148,30 @@ export function StockManager({
   return (
     <div className="mx-auto max-w-7xl">
       <header className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="mb-2 text-sm font-medium text-[#9b6d64]">Cadastros</p>
-          <h1 className="text-3xl font-semibold tracking-tight text-[#292524] sm:text-4xl">
-            Estoque
-          </h1>
-          <p className="mt-2 text-sm text-[#78716c]">
-            Cadastre suas referências para começar a controlar as peças.
-          </p>
+        <div><p className="mb-2 text-sm font-medium text-[#9b6d64]">{cadastro ? "Cadastros" : "Estoque"}</p>
+          <h1 className="text-3xl font-semibold text-[#292524]">{cadastro ? "Produtos" : "Estoque disponível"}</h1>
+          <p className="mt-2 text-sm text-[#78716c]">{cadastro ? "Gerencie produtos e categorias da sua loja" : "Consulte as peças disponíveis e registre novas entradas."}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setCatalogoAberto(true)} className="rounded-xl border border-[#9b6d64] bg-white px-4 py-3 text-sm font-semibold text-[#9b6d64] hover:bg-[#faf6f4]">Catálogo</button>
-          <Link
-            href="/estoque/categorias"
-            className="rounded-xl border border-[#ded8d4] bg-white px-4 py-3 text-sm font-semibold text-[#6b625e] hover:bg-[#faf9f8]"
-          >
-            Categorias
-          </Link>
-          <Link
-            href="/estoque/entradas"
-            className="rounded-xl border border-[#ded8d4] bg-white px-4 py-3 text-sm font-semibold text-[#6b625e] hover:bg-[#faf9f8]"
-          >
-            Entradas
-          </Link>
-          <button
-            onClick={() => {
-              setShowProductForm(true);
-              setProdutoEmEdicao({ id: null });
-              setMessage("");
-            }}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#9b6d64] bg-white px-4 py-3 text-sm font-semibold text-[#9b6d64] hover:bg-[#faf6f4]"
-          >
-            <Icon name="plus" size={18} />
-            Novo produto
-          </button>
-          <button
-            onClick={() => {
-              setShowEntryForm(true);
-              setMessage("");
-            }}
-            disabled={!produtosEntrada.length}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#9b6d64] px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#855b53] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Icon name="box" size={18} />
-            Registrar entrada
-          </button>
+          {cadastro ? <>
+            <button type="button" onClick={() => setCategoriasAbertas(true)} className="rounded-xl border border-[#ded8d4] bg-white px-4 py-3 text-sm font-semibold text-[#6b625e]">Categorias</button>
+            <button type="button" onClick={() => { setProdutoEmEdicao({ id: null }); setShowProductForm(true); setMessage(""); }} className="inline-flex items-center gap-2 rounded-xl bg-[#9b6d64] px-4 py-3 text-sm font-semibold text-white"><Icon name="plus" size={18} />Novo produto</button>
+          </> : <>
+            <button type="button" onClick={() => setCatalogoAberto(true)} className="rounded-xl border border-[#ded8d4] bg-white px-4 py-3 text-sm font-semibold text-[#6b625e]">Catálogo</button>
+            <Link href="/estoque/entradas" className="rounded-xl border border-[#ded8d4] bg-white px-4 py-3 text-sm font-semibold text-[#6b625e]">Gerenciar estoque</Link>
+            <button type="button" onClick={() => { setShowEntryForm(true); setMessage(""); }} disabled={!produtosEntrada.length} className="inline-flex items-center gap-2 rounded-xl bg-[#9b6d64] px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"><Icon name="box" size={18} />Registrar entrada</button>
+          </>}
         </div>
       </header>
       {erroCarregamento && <p role="alert" className="mb-4 rounded-xl bg-[#fff5ed] p-3 text-sm text-[#9a5b3e]">{erroCarregamento}</p>}
-      {erroProdutosEntrada && (
-        <p role="alert" className="mb-4 rounded-xl bg-[#fff5ed] p-3 text-sm text-[#9a5b3e]">{erroProdutosEntrada}</p>
-      )}
-      <section className="mb-6 grid gap-4 sm:grid-cols-3">
-        <Summary
-          label="Produtos cadastrados"
-          value={totalProdutos}
-          icon="gem"
-          tone="rose"
-        />
-        <Summary
-          label="Peças em estoque"
-          value={resumoEstoque?.total_pecas ?? products.reduce((sum, product) => sum + product.quantidade_estoque, 0)}
-          icon="box"
-          tone="emerald"
-        />
-        <Summary
-          label="Estoque baixo"
-          value={resumoEstoque?.produtos_estoque_baixo ?? lowStock}
-          icon="bell"
-          tone="amber"
-        />
-      </section>
+      {erroProdutosEntrada && <p role="alert" className="mb-4 rounded-xl bg-[#fff5ed] p-3 text-sm text-[#9a5b3e]">{erroProdutosEntrada}</p>}
+      {message && !showProductForm && !showEntryForm && <p role="alert" className="mb-4 rounded-xl bg-[#fff5ed] p-3 text-sm text-[#9a5b3e]">{message}</p>}
       <section className="rounded-2xl border border-[#ebe8e5] bg-white shadow-[0_2px_12px_rgba(41,37,36,0.03)]">
         <div className="flex flex-col gap-4 border-b border-[#f0edeb] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div>
-            <h2 className="text-lg font-semibold text-[#292524]">Produtos</h2>
+            <h2 className="text-lg font-semibold text-[#292524]">{cadastro ? "Produtos cadastrados" : "Produtos em estoque"}</h2>
             <p className="mt-1 text-sm text-[#78716c]">
-              Referências ativas da sua loja.
+              {cadastro ? "Todos os produtos cadastrados." : "Custo do próximo lote (FIFO) e maior preço de venda cadastrado."}
             </p>
           </div>
           <label className="relative block sm:w-64">
@@ -257,104 +185,30 @@ export function StockManager({
           </label>
         </div>
         {visibleProducts.length ? (
-          <div className="min-w-0">
-            <table className="block w-full table-fixed text-left md:table">
-              <colgroup className="hidden md:table-column-group">
-                <col className="w-[32%]" />
-                <col className="w-[15%]" />
-                <col className="w-[11%]" />
-                <col className="w-[9%]" />
-                <col className="w-[17%]" />
-                <col className="w-[16%]" />
-              </colgroup>
-              <thead className="hidden bg-[#fcfbfa] text-xs md:table-header-group font-semibold uppercase tracking-wide text-[#9a9591]">
-                <tr>
-                  <th className="px-3 py-3">Produto</th>
-                  <th className="px-3 py-3">Categoria</th>
-                  <th className="px-3 py-3 text-center">Em estoque</th>
-                  <th className="px-3 py-3 text-center">Mínimo</th>
-                  <th className="px-3 py-3">Status</th>
-                  <th className="px-3 py-3"></th>
-                </tr>
-              </thead>
-              <tbody ref={pagination.rowsRef} className="block divide-y md:table-row-group divide-[#f0edeb]">
-                {pagination.itens.map((product) => {
-                  const low =
-                    product.quantidade_estoque <= product.estoque_minimo;
-                  return (
-                    <tr data-page-row key={product.id} className="grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-4 text-sm text-[#57534e] md:table-row md:p-0">
-                      <td className="col-span-2 min-w-0 md:table-cell md:px-3 md:py-4">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              product.imagem_url &&
-                              setImagemAmpliada({
-                                url: product.imagem_url,
-                                referencia: product.referencia,
-                              })
-                            }
-                            className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-[#f8ece9] text-xs font-semibold text-[#9b6d64]"
-                            aria-label={`Ver imagem de ${product.referencia}`}
-                          >
-                            {product.imagem_url ? (
-                              <img
-                                src={product.imagem_url}
-                                alt={product.referencia}
-                                className="size-full object-cover"
-                              />
-                            ) : (
-                              product.referencia.slice(0, 1)
-                            )}
-                          </button>
-                          <div className="min-w-0">
-                            <p title={product.referencia} className="truncate font-semibold text-[#3f3a37]">
-                              {product.referencia}
-                            </p>
-                            <p title={product.descricao || "Sem descrição"} className="mt-0.5 truncate text-xs text-[#9a9591]">
-                              {product.descricao || "Sem descrição"}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td title={product.categorias?.nome || "Sem categoria"} className="col-span-2 min-w-0 truncate text-xs md:table-cell md:px-3 md:py-4 md:text-sm">
-                        <span className="mr-1 text-[#918b87] md:hidden">Categoria:</span>{product.categorias?.nome || "Sem categoria"}
-                      </td>
-                      <td className="min-w-0 font-semibold md:table-cell md:px-3 md:py-4 md:text-center">
-                        <span className="mr-1 font-normal text-[#918b87] md:hidden">Em estoque:</span>{product.quantidade_estoque}
-                      </td>
-                      <td className="min-w-0 md:table-cell md:px-3 md:py-4 md:text-center">
-                        <span className="mr-1 text-[#918b87] md:hidden">Mínimo:</span>{product.estoque_minimo}
-                      </td>
-                      <td className="min-w-0 self-center md:table-cell md:px-3 md:py-4">
-                        <span
-                          className={`inline-block max-w-full rounded-full px-2 py-1 text-center text-[11px] leading-4 font-semibold ${low ? "bg-[#fff3df] text-[#ae751a]" : "bg-[#eaf5ee] text-[#4f8c6d]"}`}
-                        >
-                          {low ? "Estoque baixo" : "Em dia"}
-                        </span>
-                      </td>
-                      <td className="min-w-0 self-center md:table-cell md:px-3 md:py-4">
-                        <div className="flex flex-wrap justify-end gap-x-3 gap-y-2 md:flex-col md:items-end xl:flex-row">
-                        <button onClick={() => { setProdutoEmEdicao(product); setShowProductForm(true); setMessage(""); }} className="text-xs font-semibold text-[#9b6d64]">Editar</button>
-                        <button onClick={() => excluirProduto(product.id)} className="text-xs font-semibold text-[#9b6d64]">Excluir</button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div ref={pagination.rowsRef} className="divide-y divide-[#f0edeb]">
+            {pagination.itens.map((product) => <article data-page-row key={product.id} className={"grid items-center gap-4 p-4 text-sm sm:px-5 " + (cadastro ? "grid-cols-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]" : "grid-cols-3 sm:grid-cols-[minmax(0,1fr)_64px_110px_110px]")}>
+              <div className={"flex min-w-0 items-center gap-3 " + (cadastro ? "col-span-2 sm:col-span-1" : "col-span-3 sm:col-span-1")}>
+                <button type="button" onClick={() => product.imagem_url && setImagemAmpliada({ url: product.imagem_url, referencia: product.referencia })} aria-label={"Ver foto de " + product.referencia} className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-[#f8ece9] text-xs font-semibold text-[#9b6d64]">
+                  {product.imagem_url ? <img src={product.imagem_url} alt={product.referencia} className="size-full object-contain" /> : <Icon name="gem" size={20} />}
+                </button>
+                <div className="min-w-0"><p title={product.referencia} className="truncate font-semibold text-[#44403c]">{product.referencia}</p><p title={product.descricao || "Sem descrição"} className="mt-1 truncate text-xs text-[#918b87]">{product.descricao || "Sem descrição"}</p></div>
+              </div>
+              {cadastro ? <>
+                <div className="min-w-0"><p className="text-xs text-[#918b87]">Categoria</p><p title={product.categorias?.nome} className="mt-1 truncate text-[#57534e]">{product.categorias?.nome || "Sem categoria"}</p></div>
+                <div className="flex flex-wrap justify-end gap-3"><button type="button" onClick={() => { setProdutoEmEdicao(product); setShowProductForm(true); setMessage(""); }} className="text-xs font-semibold text-[#9b6d64]">Editar</button><button type="button" onClick={() => excluirProduto(product.id)} className="text-xs font-semibold text-[#9b6d64]">Excluir</button></div>
+              </> : <>
+                <div className="min-w-0 sm:text-center"><p className="text-[11px] text-[#918b87]">Disponível</p><p className="mt-1 font-semibold tabular-nums text-[#57534e]">{product.quantidade_estoque}</p></div>
+                <div className="min-w-0 sm:text-right"><p className="text-[11px] text-[#918b87]">Custo unitário</p><p className="mt-1 break-words text-xs font-medium tabular-nums text-[#57534e] sm:text-sm">{moeda(product.custo_unitario)}</p></div>
+                <div className="min-w-0 text-right"><p className="text-[11px] text-[#918b87]">Valor de venda</p><p className="mt-1 break-words text-xs font-semibold tabular-nums text-[#9b6d64] sm:text-sm">{moeda(product.valor_venda)}</p></div>
+              </>}
+            </article>)}
           </div>
-        ) : (
-          <EmptyProducts
-            hasSearch={Boolean(search)}
-            onCreate={() => setShowProductForm(true)}
-          />
-        )}
+        ) : <div className="p-10 text-center text-sm text-[#918b87]">{search.trim() ? "Nenhum produto encontrado para esta referência." : cadastro ? "Nenhum produto cadastrado." : "Nenhum produto com estoque disponível."}</div>}
         <ListPagination pagination={pagination} total={visibleProducts.length} label="produtos" />
       </section>
+      {categoriasAbertas && <CategoriesDialog categories={categories} onClose={() => setCategoriasAbertas(false)} />}
       {catalogoAberto && <CatalogShareDialog clientes={clientesCatalogo} erroClientes={erroClientesCatalogo} onClose={() => setCatalogoAberto(false)} />}
-      {(showProductForm || showCategoryForm || showEntryForm) && (
+      {(showProductForm || showEntryForm) && (
         <div className="app-modal-overlay bg-[#292524]/35">
           <div className={"app-modal-panel w-full rounded-2xl bg-white p-6 shadow-xl " + (showEntryForm ? "max-w-3xl" : "max-w-md")}>
             <div className="app-modal-heading flex items-start justify-between gap-4">
@@ -362,16 +216,12 @@ export function StockManager({
                 <h2 className="text-xl font-semibold text-[#292524]">
                   {showEntryForm
                     ? "Registrar entrada"
-                    : showProductForm
-                      ? "Novo produto"
-                      : "Nova categoria"}
+                    : produtoEmEdicao.id ? "Editar produto" : "Novo produto"}
                 </h2>
                 <p className="mt-1 text-sm text-[#78716c]">
                   {showEntryForm
                     ? "Uma data para todos os produtos. Cada item cria seu próprio lote no estoque."
-                    : showProductForm
-                      ? "Cadastre a referência; a entrada de peças vem na próxima etapa."
-                      : "Use categorias para organizar suas referências."}
+                    : "Cadastre a referência; a entrada de peças é feita no estoque."}
                 </p>
               </div>
               <button
@@ -379,7 +229,6 @@ export function StockManager({
                 aria-label="Fechar formulário"
                 onClick={() => {
                   setShowProductForm(false);
-                  setShowCategoryForm(false);
                   setShowEntryForm(false);
                   setMessage("");
                 }}
@@ -395,7 +244,7 @@ export function StockManager({
             )}
             {showEntryForm ? (
               <BatchEntryForm produtos={produtosEntrada} saving={saving} onSave={registerEntry} />
-            ) : showProductForm ? (
+            ) : (
               <form
                 onSubmit={(event) => {
                   event.preventDefault();
@@ -436,7 +285,7 @@ export function StockManager({
                     name="categoria_id"
                     opcoes={[
                       { valor: "", rotulo: "Sem categoria" },
-                      ...categories.map((category) => ({ valor: category.id, rotulo: category.nome })),
+                      ...categories.filter((category) => category.ativo !== false).map((category) => ({ valor: category.id, rotulo: category.nome })),
                     ]}
                     valor={produtoEmEdicao.categoria_id || ""}
                     aoSelecionar={(categoria_id) => setProdutoEmEdicao((produto) => ({ ...produto, categoria_id }))}
@@ -461,22 +310,6 @@ export function StockManager({
                       : "Cadastrar produto"
                   }
                 />
-              </form>
-            ) : (
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  createCategory(event.currentTarget);
-                }}
-                className="mt-6 space-y-4"
-              >
-                <Field
-                  name="nome"
-                  label="Nome da categoria"
-                  placeholder="Ex.: Brincos"
-                  required
-                />
-                <Submit saving={saving} label="Cadastrar categoria" />
               </form>
             )}
           </div>
@@ -512,26 +345,6 @@ export function StockManager({
   );
 }
 
-function Summary({ label, value, icon, tone }) {
-  const styles = {
-    rose: "bg-[#f8ece9] text-[#9b6d64]",
-    emerald: "bg-[#e8f5ee] text-[#4f9673]",
-    amber: "bg-[#fff5df] text-[#c58b2c]",
-  };
-  return (
-    <article className="flex items-center justify-between rounded-2xl border border-[#ebe8e5] bg-white p-5 shadow-[0_2px_12px_rgba(41,37,36,0.03)]">
-      <div>
-        <p className="text-sm font-medium text-[#78716c]">{label}</p>
-        <p className="mt-2 text-2xl font-semibold text-[#292524]">{value}</p>
-      </div>
-      <span
-        className={`grid size-10 place-items-center rounded-xl ${styles[tone]}`}
-      >
-        <Icon name={icon} size={20} />
-      </span>
-    </article>
-  );
-}
 function Field({ label, ...props }) {
   return (
     <label className="block">
@@ -553,30 +366,5 @@ function Submit({ saving, label }) {
     >
       {saving ? "Salvando..." : label}
     </button></div>
-  );
-}
-function EmptyProducts({ hasSearch, onCreate }) {
-  return (
-    <div className="flex min-h-72 flex-col items-center justify-center px-5 text-center">
-      <span className="grid size-12 place-items-center rounded-full bg-[#f8ece9] text-[#9b6d64]">
-        <Icon name="gem" size={22} />
-      </span>
-      <h3 className="mt-4 font-semibold text-[#44403c]">
-        {hasSearch ? "Nenhum produto encontrado" : "Seu estoque começa aqui"}
-      </h3>
-      <p className="mt-1 max-w-sm text-sm leading-6 text-[#78716c]">
-        {hasSearch
-          ? "Tente outra referência ou descrição."
-          : "Cadastre as referências das suas semijoias para depois registrar as entradas por lote."}
-      </p>
-      {!hasSearch && (
-        <button
-          onClick={onCreate}
-          className="mt-5 text-sm font-semibold text-[#9b6d64]"
-        >
-          Cadastrar primeiro produto
-        </button>
-      )}
-    </div>
   );
 }
